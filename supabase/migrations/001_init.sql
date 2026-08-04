@@ -1,12 +1,12 @@
 -- ============================================================================
 -- Production-Ready Supabase Schema (001_init.sql)
--- Complete database setup from scratch for Ganesh Mandal Ledger Management System
--- Compatible with Supabase, Next.js, Prisma, Vercel, and TypeScript
+-- Complete, Idempotent Database Setup for Ganesh Mandal Ledger System
+-- Compatible with Supabase, PostgreSQL, Next.js, Prisma, Vercel & TypeScript
 -- ============================================================================
 
--- ============================================================================
+-- ----------------------------------------------------------------------------
 -- 1. TABLES
--- ============================================================================
+-- ----------------------------------------------------------------------------
 
 -- 1.1 USERS (Profile table mirroring auth.users)
 create table if not exists public.users (
@@ -38,7 +38,8 @@ create table if not exists public.voucher_counter (
 );
 
 -- 1.5 INCOME
--- receipt_number is NOT UNIQUE. Only id (UUID) is permanently unique.
+-- Note: receipt_number is NOT unique (display serial number only).
+-- UUID id is the only permanent unique identifier.
 create table if not exists public.income (
   id uuid primary key default gen_random_uuid(),
   receipt_number integer not null,
@@ -53,7 +54,8 @@ create table if not exists public.income (
 );
 
 -- 1.6 EXPENSE
--- voucher_number is NOT UNIQUE. Only id (UUID) is permanently unique.
+-- Note: voucher_number is NOT unique (display serial number only).
+-- UUID id is the only permanent unique identifier.
 create table if not exists public.expense (
   id uuid primary key default gen_random_uuid(),
   voucher_number integer not null,
@@ -67,17 +69,17 @@ create table if not exists public.expense (
   created_at timestamptz not null default now()
 );
 
--- ============================================================================
+-- ----------------------------------------------------------------------------
 -- 2. INDEXES
--- ============================================================================
+-- ----------------------------------------------------------------------------
 create index if not exists income_created_at_idx on public.income (created_at desc);
 create index if not exists income_receipt_number_idx on public.income (receipt_number);
 create index if not exists expense_created_at_idx on public.expense (created_at desc);
 create index if not exists expense_voucher_number_idx on public.expense (voucher_number);
 
--- ============================================================================
+-- ----------------------------------------------------------------------------
 -- 3. AUTOMATIC PROFILE CREATION TRIGGER
--- ============================================================================
+-- ----------------------------------------------------------------------------
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -102,30 +104,31 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- ============================================================================
+-- ----------------------------------------------------------------------------
 -- 4. SEED DATA
--- ============================================================================
+-- ----------------------------------------------------------------------------
 -- Seed default expense heads
 insert into public.expense_heads (name) values
   ('Decoration'), ('Murti'), ('Prasad'), ('Lighting'), ('Mandap'), ('Other')
 on conflict (name) do nothing;
 
--- Seed counters if empty
+-- Seed single tracking row for receipt counter if empty
 insert into public.receipt_counter (current_number)
 select 0
 where not exists (select 1 from public.receipt_counter);
 
+-- Seed single tracking row for voucher counter if empty
 insert into public.voucher_counter (current_number)
 select 0
 where not exists (select 1 from public.voucher_counter);
 
--- ============================================================================
+-- ----------------------------------------------------------------------------
 -- 5. RPC FUNCTIONS
--- ============================================================================
+-- ----------------------------------------------------------------------------
 
 -- 5.1 create_income_entry()
--- Uses pg_advisory_xact_lock, increments counter, inserts receipt_number,
--- assigns auth.uid() to created_by, and returns the inserted row.
+-- Concurrency safe: uses pg_advisory_xact_lock, increments counter with explicit WHERE,
+-- inserts receipt_number, stores auth.uid() in created_by, and returns inserted row.
 create or replace function public.create_income_entry(
   p_amount numeric,
   p_donor_name text,
@@ -146,7 +149,7 @@ begin
 
   update public.receipt_counter
     set current_number = current_number + 1
-    where true
+    where id = (select id from public.receipt_counter limit 1)
     returning current_number into v_next_number;
 
   insert into public.income (
@@ -175,8 +178,8 @@ end;
 $$;
 
 -- 5.2 create_expense_entry()
--- Uses pg_advisory_xact_lock, increments counter, inserts voucher_number,
--- assigns auth.uid() to created_by, and returns the inserted row.
+-- Concurrency safe: uses pg_advisory_xact_lock, increments counter with explicit WHERE,
+-- inserts voucher_number, stores auth.uid() in created_by, and returns inserted row.
 create or replace function public.create_expense_entry(
   p_amount numeric,
   p_paid_to text,
@@ -197,7 +200,7 @@ begin
 
   update public.voucher_counter
     set current_number = current_number + 1
-    where true
+    where id = (select id from public.voucher_counter limit 1)
     returning current_number into v_next_number;
 
   insert into public.expense (
@@ -226,7 +229,7 @@ end;
 $$;
 
 -- 5.3 reset_receipt_counter()
--- Admin-only reset: deletes income records and resets counter to 0 (next entry = 1).
+-- Admin-only reset: deletes all income records and resets counter to 0 (next receipt = 1).
 create or replace function public.reset_receipt_counter()
 returns void
 language plpgsql
@@ -241,12 +244,14 @@ begin
   end if;
 
   delete from public.income;
-  update public.receipt_counter set current_number = 0 where true;
+  update public.receipt_counter
+    set current_number = 0
+    where id = (select id from public.receipt_counter limit 1);
 end;
 $$;
 
 -- 5.4 reset_voucher_counter()
--- Admin-only reset: deletes expense records and resets counter to 0 (next entry = 1).
+-- Admin-only reset: deletes all expense records and resets counter to 0 (next voucher = 1).
 create or replace function public.reset_voucher_counter()
 returns void
 language plpgsql
@@ -261,19 +266,21 @@ begin
   end if;
 
   delete from public.expense;
-  update public.voucher_counter set current_number = 0 where true;
+  update public.voucher_counter
+    set current_number = 0
+    where id = (select id from public.voucher_counter limit 1);
 end;
 $$;
 
--- Grant execution privileges to authenticated users
+-- Grant execution privileges on RPC functions to authenticated users
 grant execute on function public.create_income_entry to authenticated;
 grant execute on function public.create_expense_entry to authenticated;
 grant execute on function public.reset_receipt_counter to authenticated;
 grant execute on function public.reset_voucher_counter to authenticated;
 
--- ============================================================================
+-- ----------------------------------------------------------------------------
 -- 6. ROW LEVEL SECURITY (RLS) & POLICIES
--- ============================================================================
+-- ----------------------------------------------------------------------------
 
 alter table public.users enable row level security;
 alter table public.income enable row level security;
@@ -358,9 +365,9 @@ create policy "expense_admin_delete" on public.expense
     exists (select 1 from public.users u where u.id = auth.uid() and u.role = 'admin')
   );
 
--- ============================================================================
+-- ----------------------------------------------------------------------------
 -- 7. SUPABASE REALTIME
--- ============================================================================
+-- ----------------------------------------------------------------------------
 do $$
 begin
   if not exists (
