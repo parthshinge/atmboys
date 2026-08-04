@@ -41,6 +41,7 @@ export async function POST(request: NextRequest) {
     id: created.user.id,
     full_name,
     role: "collector",
+    is_active: true,
   });
 
   if (profileError) {
