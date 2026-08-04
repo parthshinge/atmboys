@@ -53,7 +53,6 @@ export function Navbar() {
           { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
           { href: "/income", label: "Income", icon: IndianRupee },
           { href: "/expense", label: "Expense", icon: Receipt },
-          { href: "/receipt-view", label: "Receipt View", icon: Receipt },
           { href: "/reports", label: "Reports", icon: FileBarChart },
           { href: "/admin", label: "Admin", icon: Shield },
         ]
@@ -61,7 +60,6 @@ export function Navbar() {
           { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
           { href: "/income", label: "Income", icon: IndianRupee },
           { href: "/expense", label: "Expense", icon: Receipt },
-          { href: "/receipt-view", label: "Receipt View", icon: Receipt },
           { href: "/reports", label: "Reports", icon: FileBarChart },
           { href: "/my-records", label: "My Records", icon: LayoutDashboard },
         ];

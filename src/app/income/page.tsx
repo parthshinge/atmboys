@@ -9,7 +9,7 @@ import { Navbar } from "@/components/Navbar";
 import { createClient } from "@/lib/supabase/client";
 import type { AppUser, IncomeEntry } from "@/types/database";
 
-const fixedCollectors = ["Nikhil", "Vishal", "Vishwajeet", "Onkar"];
+const fixedCollectors = ["Nikhil", "Vishal", "Vishwajeet"];
 
 const incomeSchema = z.object({
   amount: z.coerce.number().positive("Enter a valid amount"),
@@ -26,6 +26,11 @@ export default function IncomePage() {
   const [collectors, setCollectors] = useState<AppUser[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const uniqueCollectors = collectors.filter(
+    (collector, index, self) =>
+      index === self.findIndex((c) => c.full_name === collector.full_name)
+  );
 
   const {
     register,
@@ -154,12 +159,12 @@ export default function IncomePage() {
               <option value="" disabled>
                 Select collector
               </option>
-              {fixedCollectors.map((name) => (
+                  {fixedCollectors.map((name) => (
                 <option key={name} value={name}>
                   {name}
                 </option>
               ))}
-              {collectors.map((c) => (
+              {uniqueCollectors.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.full_name}
                 </option>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { createClient } from "@/lib/supabase/client";
 import type { IncomeEntry, ExpenseEntry } from "@/types/database";
@@ -143,16 +144,16 @@ export default function DashboardPage() {
               {recent.map((tx) => (
                 <div
                   key={`${tx.kind}-${tx.id}`}
-                  className="flex items-center justify-between border-b border-gray-100 px-4 py-3 last:border-b-0"
+                  className="flex flex-col gap-3 border-b border-gray-100 px-4 py-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-1 items-center gap-3 min-w-0">
                     {tx.kind === "income" ? (
                       <ArrowUpCircle className="text-green-600" size={20} />
                     ) : (
                       <ArrowDownCircle className="text-red-600" size={20} />
                     )}
-                    <div>
-                      <p className="text-sm font-medium text-gray-800">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-800 truncate">
                         {tx.kind === "income"
                           ? `${tx.donor_name} · Receipt #${padNumber(tx.receipt_number)}`
                           : `${tx.paid_to} · Voucher #${padNumber(tx.voucher_number)}`}
@@ -160,14 +161,27 @@ export default function DashboardPage() {
                       <p className="text-xs text-gray-500">{formatDate(tx.created_at)}</p>
                     </div>
                   </div>
-                  <p
-                    className={`text-sm font-bold ${
-                      tx.kind === "income" ? "text-green-600" : "text-red-600"
-                    }`}
-                  >
-                    {tx.kind === "income" ? "+" : "-"}
-                    {formatCurrency(Number(tx.amount))}
-                  </p>
+
+                  <div className="flex flex-col gap-2 sm:items-end sm:flex-row sm:gap-3">
+                    <p
+                      className={`text-sm font-bold ${
+                        tx.kind === "income" ? "text-green-600" : "text-red-600"
+                      }`}
+                    >
+                      {tx.kind === "income" ? "+" : "-"}
+                      {formatCurrency(Number(tx.amount))}
+                    </p>
+                    {tx.kind === "income" && (
+                      <Link
+                        href={`/receipt/${tx.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-lg border border-saffron-200 bg-saffron-50 px-3 py-1.5 text-xs font-semibold text-saffron-700 transition hover:bg-saffron-100"
+                      >
+                        View Receipt
+                      </Link>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

@@ -17,7 +17,8 @@ export default function MyRecordsPage() {
     async function load() {
       const supabase = createClient();
       // RLS automatically restricts these queries to the logged-in
-      // collector's own records from the current (post-reset) cycle.
+      // collector's own records. After the counter reset, collectors still
+      // see their own historical income and expense entries.
       const [{ data: incomeData }, { data: expenseData }] = await Promise.all([
         supabase.from("income").select("*").order("created_at", { ascending: false }),
         supabase.from("expense").select("*").order("created_at", { ascending: false }),
