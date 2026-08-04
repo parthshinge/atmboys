@@ -92,6 +92,15 @@ export default function AdminPageClient() {
     loadData();
   }
 
+  async function handleToggleReportAccess(member: AppUser) {
+    const supabase = createClient();
+    await supabase
+      .from("users")
+      .update({ full_report_access: !member.full_report_access })
+      .eq("id", member.id);
+    loadData();
+  }
+
   async function handleResetPassword(id: string) {
     if (newPassword.length < 6) {
       setMessage("New password must be at least 6 characters.");
@@ -208,8 +217,9 @@ export default function AdminPageClient() {
             </button>
           </form>
           <p className="mb-4 text-xs text-gray-400">
-            New members get login access immediately with User-only permissions (Login, Create
-            Receipts, View Their Own Records, Print Receipts).
+            New members get login access immediately with User-only permissions (Login, Add
+            Income, Print Receipts, Share Receipts, View Their Own Records). Admins can also
+            grant full report access using the toggle below.
           </p>
 
           <div className="divide-y divide-gray-100">
@@ -272,6 +282,11 @@ export default function AdminPageClient() {
                   >
                     {m.role}
                   </span>
+                  {m.full_report_access && (
+                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                      Full Reports
+                    </span>
+                  )}
                   {!m.is_active && (
                     <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
                       Deactivated
@@ -288,6 +303,16 @@ export default function AdminPageClient() {
                     <option value="collector">User</option>
                     <option value="admin">Admin</option>
                   </select>
+                  <button
+                    onClick={() => handleToggleReportAccess(m)}
+                    className={`rounded-lg px-2 py-1 text-xs font-medium ${
+                      m.full_report_access
+                        ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}
+                  >
+                    {m.full_report_access ? "Full Reports" : "Own Reports"}
+                  </button>
                   <button
                     onClick={() => handleToggleActive(m)}
                     className={`rounded-lg px-2 py-1 text-xs font-medium ${

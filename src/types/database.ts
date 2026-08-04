@@ -6,6 +6,7 @@ export interface AppUser {
   full_name: string;
   role: UserRole;
   is_active: boolean;
+  full_report_access?: boolean;
   created_at: string;
 }
 

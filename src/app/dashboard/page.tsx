@@ -24,43 +24,56 @@ export default function DashboardPage() {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
+    const { data: profile } = await supabase
+      .from("users")
+      .select("role, full_report_access")
+      .eq("id", (await supabase.auth.getUser()).data.user?.id ?? "")
+      .single();
+
+    const shouldRestrict = profile?.role !== "admin" && !profile?.full_report_access;
+    const userId = (await supabase.auth.getUser()).data.user?.id;
+
+    const incomeQuery = supabase.from("income").select("amount, created_at");
+    const expenseQuery = supabase.from("expense").select("amount, created_at");
+    const recentIncomeQuery = supabase.from("income").select("*").order("created_at", {
+      ascending: false,
+    })
+      .limit(10);
+    const recentExpenseQuery = supabase.from("expense").select("*").order("created_at", {
+      ascending: false,
+    })
+      .limit(10);
+
+    if (shouldRestrict && userId) {
+      incomeQuery.eq("created_by", userId);
+      expenseQuery.eq("created_by", userId);
+      recentIncomeQuery.eq("created_by", userId);
+      recentExpenseQuery.eq("created_by", userId);
+    }
+
     const [
       { data: incomeAll },
       { data: expenseAll },
       { data: recentIncome },
       { data: recentExpense },
-    ] = await Promise.all([
-      supabase.from("income").select("amount, created_at"),
-      supabase.from("expense").select("amount, created_at"),
-      supabase
-        .from("income")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(10),
-      supabase
-        .from("expense")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(10),
-    ]);
+    ] = await Promise.all([incomeQuery, expenseQuery, recentIncomeQuery, recentExpenseQuery]);
 
     const income = incomeAll ?? [];
     const expense = expenseAll ?? [];
 
-    setTotalIncome(income.reduce((sum, r) => sum + Number(r.amount), 0));
-    setTotalExpense(expense.reduce((sum, r) => sum + Number(r.amount), 0));
+    const totalIncomeValue = income.reduce((sum, r) => sum + Number(r.amount), 0);
+    const totalExpenseValue = expense.reduce((sum, r) => sum + Number(r.amount), 0);
+    const todayIncomeValue = income
+      .filter((r) => new Date(r.created_at) >= startOfDay)
+      .reduce((sum, r) => sum + Number(r.amount), 0);
+    const todayExpenseValue = expense
+      .filter((r) => new Date(r.created_at) >= startOfDay)
+      .reduce((sum, r) => sum + Number(r.amount), 0);
 
-    setTodayIncome(
-      income
-        .filter((r) => new Date(r.created_at) >= startOfDay)
-        .reduce((sum, r) => sum + Number(r.amount), 0)
-    );
-    setTodayExpense(
-      expense
-        .filter((r) => new Date(r.created_at) >= startOfDay)
-        .reduce((sum, r) => sum + Number(r.amount), 0)
-    );
-
+    setTotalIncome(totalIncomeValue);
+    setTotalExpense(totalExpenseValue);
+    setTodayIncome(todayIncomeValue);
+    setTodayExpense(todayExpenseValue);
     const combined: Transaction[] = [
       ...(recentIncome ?? []).map((r) => ({ kind: "income" as const, ...r })),
       ...(recentExpense ?? []).map((r) => ({ kind: "expense" as const, ...r })),

@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
 const PUBLIC_PATHS = ["/login"];
-const ADMIN_ONLY_PATHS = ["/admin", "/dashboard", "/reports"];
+const ADMIN_ONLY_PATHS = ["/admin"];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -61,7 +61,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  const homeForRole = role === "admin" ? "/dashboard" : "/my-records";
+  const homeForRole = role === "collector" ? "/my-records" : "/dashboard";
 
   if (user && path === "/login") {
     return NextResponse.redirect(new URL(homeForRole, request.url));

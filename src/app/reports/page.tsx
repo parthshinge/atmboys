@@ -32,19 +32,37 @@ export default function ReportsPage() {
     const to = new Date(toDate);
     to.setHours(23, 59, 59, 999);
 
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const { data: profile } = await supabase
+      .from("users")
+      .select("role, full_report_access")
+      .eq("id", user?.id ?? "")
+      .single();
+
+    const restrict = profile?.role !== "admin" && !profile?.full_report_access;
+    const incomeQuery = supabase
+      .from("income")
+      .select("*")
+      .gte("created_at", from.toISOString())
+      .lte("created_at", to.toISOString())
+      .order("receipt_number", { ascending: true });
+    const expenseQuery = supabase
+      .from("expense")
+      .select("*")
+      .gte("created_at", from.toISOString())
+      .lte("created_at", to.toISOString())
+      .order("voucher_number", { ascending: true });
+
+    if (restrict && user?.id) {
+      incomeQuery.eq("created_by", user.id);
+      expenseQuery.eq("created_by", user.id);
+    }
+
     const [{ data: incomeData }, { data: expenseData }] = await Promise.all([
-      supabase
-        .from("income")
-        .select("*")
-        .gte("created_at", from.toISOString())
-        .lte("created_at", to.toISOString())
-        .order("receipt_number", { ascending: true }),
-      supabase
-        .from("expense")
-        .select("*")
-        .gte("created_at", from.toISOString())
-        .lte("created_at", to.toISOString())
-        .order("voucher_number", { ascending: true }),
+      incomeQuery,
+      expenseQuery,
     ]);
 
     setIncome(incomeData ?? []);
