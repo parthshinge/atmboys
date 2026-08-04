@@ -32,28 +32,16 @@ export default function ReportsPage() {
     const to = new Date(toDate);
     to.setHours(23, 59, 59, 999);
 
-    const { data: cycleInfo } = await supabase.rpc("get_active_cycle_info");
-    const receiptCycle = cycleInfo?.receipt_cycle_number ?? 1;
-    const voucherCycle = cycleInfo?.voucher_cycle_number ?? 1;
-    const receiptCycleStart = cycleInfo?.receipt_cycle_started_at
-      ? new Date(cycleInfo.receipt_cycle_started_at)
-      : null;
-    const voucherCycleStart = cycleInfo?.voucher_cycle_started_at
-      ? new Date(cycleInfo.voucher_cycle_started_at)
-      : null;
-
     const incomeQuery = supabase
       .from("income")
       .select("*")
-      .eq("cycle_number", receiptCycle)
-      .gte("created_at", receiptCycleStart && from < receiptCycleStart ? receiptCycleStart.toISOString() : from.toISOString())
+      .gte("created_at", from.toISOString())
       .lte("created_at", to.toISOString())
       .order("receipt_number", { ascending: true });
     const expenseQuery = supabase
       .from("expense")
       .select("*")
-      .eq("cycle_number", voucherCycle)
-      .gte("created_at", voucherCycleStart && from < voucherCycleStart ? voucherCycleStart.toISOString() : from.toISOString())
+      .gte("created_at", from.toISOString())
       .lte("created_at", to.toISOString())
       .order("voucher_number", { ascending: true });
 

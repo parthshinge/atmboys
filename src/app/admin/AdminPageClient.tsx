@@ -143,25 +143,25 @@ export default function AdminPageClient() {
   async function handleResetReceiptCounter() {
     if (
       !confirm(
-        "Start a fresh receipt cycle? Numbering restarts at 01 and all members' record views reset. Existing receipts remain archived."
+        "Reset receipt counter? This will delete all income records and restart numbering from 1. This action cannot be undone."
       )
     )
       return;
     const supabase = createClient();
     const { error } = await supabase.rpc("reset_receipt_counter");
-    setMessage(error ? error.message : "Receipt counter reset — new cycle started.");
+    setMessage(error ? error.message : "Receipt counter reset — all income records deleted.");
   }
 
   async function handleResetVoucherCounter() {
     if (
       !confirm(
-        "Start a fresh voucher cycle? Numbering restarts at 01 and all members' record views reset. Existing vouchers remain archived."
+        "Reset voucher counter? This will delete all expense records and restart numbering from 1. This action cannot be undone."
       )
     )
       return;
     const supabase = createClient();
     const { error } = await supabase.rpc("reset_voucher_counter");
-    setMessage(error ? error.message : "Voucher counter reset — new cycle started.");
+    setMessage(error ? error.message : "Voucher counter reset — all expense records deleted.");
   }
 
   return (
@@ -411,19 +411,17 @@ export default function AdminPageClient() {
               onClick={handleResetReceiptCounter}
               className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
             >
-              <RotateCcw size={16} /> Reset Receipt Counter (New Cycle)
+              <RotateCcw size={16} /> Full Reset: Delete All Income & Reset Counter
             </button>
             <button
               onClick={handleResetVoucherCounter}
               className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
             >
-              <RotateCcw size={16} /> Reset Voucher Counter (New Cycle)
+              <RotateCcw size={16} /> Full Reset: Delete All Expense & Reset Counter
             </button>
           </div>
           <p className="mt-3 text-xs text-gray-400">
-            Resetting starts a brand-new numbering cycle from 01. Members will only see records
-            created after the reset; all previous records stay safely archived and remain visible
-            to Admin in Reports.
+            Full Reset deletes all records and restarts numbering from 1. Dashboard and reports will be empty after reset.
           </p>
         </section>
       </main>

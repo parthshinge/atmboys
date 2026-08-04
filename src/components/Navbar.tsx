@@ -61,7 +61,6 @@ export function Navbar() {
           { href: "/income", label: "Income", icon: IndianRupee },
           { href: "/expense", label: "Expense", icon: Receipt },
           { href: "/reports", label: "Reports", icon: FileBarChart },
-          { href: "/my-records", label: "My Records", icon: LayoutDashboard },
         ];
 
   return (

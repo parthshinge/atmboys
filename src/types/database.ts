@@ -13,28 +13,24 @@ export interface AppUser {
 export interface IncomeEntry {
   id: string;
   receipt_number: number;
-  cycle_number?: number;
   amount: number;
   donor_name: string;
   mobile_number: string | null;
   payment_mode: PaymentMode;
   collected_by: string | null;
   collected_by_name: string;
-  created_by?: string | null;
   created_at: string;
 }
 
 export interface ExpenseEntry {
   id: string;
   voucher_number: number;
-  cycle_number?: number;
   amount: number;
   paid_to: string;
   expense_head: string;
   payment_mode: PaymentMode;
   paid_by: string | null;
   paid_by_name: string;
-  created_by?: string | null;
   created_at: string;
 }
 
