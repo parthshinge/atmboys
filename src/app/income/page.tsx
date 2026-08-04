@@ -9,12 +9,14 @@ import { Navbar } from "@/components/Navbar";
 import { createClient } from "@/lib/supabase/client";
 import type { AppUser, IncomeEntry } from "@/types/database";
 
+const fixedCollectors = ["Nikhil", "Vishal", "Vishwajeet", "Onkar"];
+
 const incomeSchema = z.object({
   amount: z.coerce.number().positive("Enter a valid amount"),
   donor_name: z.string().min(1, "Donor name is required"),
   mobile_number: z.string().optional(),
   payment_mode: z.enum(["cash", "online"]),
-  collected_by: z.string().uuid("Select who collected this"),
+  collected_by: z.string().min(1, "Select who collected this"),
 });
 
 type IncomeFormValues = z.infer<typeof incomeSchema>;
@@ -58,6 +60,9 @@ export default function IncomePage() {
     const supabase = createClient();
 
     const collector = collectors.find((c) => c.id === values.collected_by);
+    const isFixedCollector = fixedCollectors.includes(values.collected_by);
+    const collectedByName = collector?.full_name ?? (isFixedCollector ? values.collected_by : "");
+    const collectedById = collector?.id ?? null;
 
     const { data, error: rpcError } = (await supabase
       .rpc("create_income_entry", {
@@ -65,8 +70,8 @@ export default function IncomePage() {
         p_donor_name: values.donor_name,
         p_mobile_number: values.mobile_number || null,
         p_payment_mode: values.payment_mode,
-        p_collected_by: values.collected_by,
-        p_collected_by_name: collector?.full_name ?? "",
+        p_collected_by: collectedById,
+        p_collected_by_name: collectedByName,
       })
       .single()) as { data: IncomeEntry | null; error: { message: string } | null };
 
@@ -146,6 +151,14 @@ export default function IncomePage() {
               {...register("collected_by")}
               className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-base focus:border-saffron-500 focus:outline-none focus:ring-1 focus:ring-saffron-500"
             >
+              <option value="" disabled>
+                Select collector
+              </option>
+              {fixedCollectors.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
               {collectors.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.full_name}
