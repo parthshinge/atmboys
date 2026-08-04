@@ -149,7 +149,12 @@ export default function AdminPageClient() {
       return;
     const supabase = createClient();
     const { error } = await supabase.rpc("reset_receipt_counter");
-    setMessage(error ? error.message : "Receipt counter reset — all income records deleted.");
+    if (error) {
+      setMessage(error.message);
+    } else {
+      setMessage("Receipt counter reset — all income records deleted.");
+      loadData();
+    }
   }
 
   async function handleResetVoucherCounter() {
@@ -161,7 +166,12 @@ export default function AdminPageClient() {
       return;
     const supabase = createClient();
     const { error } = await supabase.rpc("reset_voucher_counter");
-    setMessage(error ? error.message : "Voucher counter reset — all expense records deleted.");
+    if (error) {
+      setMessage(error.message);
+    } else {
+      setMessage("Voucher counter reset — all expense records deleted.");
+      loadData();
+    }
   }
 
   return (

@@ -105,7 +105,7 @@ create trigger on_auth_user_created
 -- ============================================================================
 -- 4. SEED DATA
 -- ============================================================================
--- Seed expense heads
+-- Seed default expense heads
 insert into public.expense_heads (name) values
   ('Decoration'), ('Murti'), ('Prasad'), ('Lighting'), ('Mandap'), ('Other')
 on conflict (name) do nothing;
@@ -146,6 +146,7 @@ begin
 
   update public.receipt_counter
     set current_number = current_number + 1
+    where true
     returning current_number into v_next_number;
 
   insert into public.income (
@@ -196,6 +197,7 @@ begin
 
   update public.voucher_counter
     set current_number = current_number + 1
+    where true
     returning current_number into v_next_number;
 
   insert into public.expense (
@@ -239,7 +241,7 @@ begin
   end if;
 
   delete from public.income;
-  update public.receipt_counter set current_number = 0;
+  update public.receipt_counter set current_number = 0 where true;
 end;
 $$;
 
@@ -259,7 +261,7 @@ begin
   end if;
 
   delete from public.expense;
-  update public.voucher_counter set current_number = 0;
+  update public.voucher_counter set current_number = 0 where true;
 end;
 $$;
 
