@@ -25,15 +25,6 @@ export default function DashboardPage() {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
-    const { data: profile } = await supabase
-      .from("users")
-      .select("role, full_report_access")
-      .eq("id", (await supabase.auth.getUser()).data.user?.id ?? "")
-      .single();
-
-    const shouldRestrict = profile?.role !== "admin" && !profile?.full_report_access;
-    const userId = (await supabase.auth.getUser()).data.user?.id;
-
     const incomeQuery = supabase.from("income").select("amount, created_at");
     const expenseQuery = supabase.from("expense").select("amount, created_at");
     const recentIncomeQuery = supabase.from("income").select("*").order("created_at", {
@@ -44,13 +35,6 @@ export default function DashboardPage() {
       ascending: false,
     })
       .limit(10);
-
-    if (shouldRestrict && userId) {
-      incomeQuery.eq("created_by", userId);
-      expenseQuery.eq("created_by", userId);
-      recentIncomeQuery.eq("created_by", userId);
-      recentExpenseQuery.eq("created_by", userId);
-    }
 
     const [
       { data: incomeAll },

@@ -58,11 +58,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
   async function handleWhatsAppShare() {
     if (!entry) return;
     const text = encodeURIComponent(
-      `Ganesh Mandal Receipt #${padNumber(entry.receipt_number)}\nDonor: ${
-        entry.donor_name
-      }\nAmount: ${formatCurrency(Number(entry.amount))}\nMode: ${entry.payment_mode}\nCollected By: ${
-        entry.collected_by_name
-      }\nDate: ${formatDate(entry.created_at)}`
+      `------------------------------------\nअष्टविनायक तरुण मंडळ\n\nReceipt No. ${padNumber(entry.receipt_number)}\nDonor: ${entry.donor_name}\nAmount: ${formatCurrency(Number(entry.amount))}\nMode: ${entry.payment_mode}\nCollected By: ${entry.collected_by_name}\nDate: ${formatDate(entry.created_at)}\n\n🌸 गणपती बाप्पा मोरया 🙏\n------------------------------------`
     );
 
     if (receiptRef.current && navigator.canShare) {
