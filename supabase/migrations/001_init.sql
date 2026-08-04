@@ -5,6 +5,34 @@
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
+-- 0. CLEANUP OLD CONSTRAINTS / STRUCTS IF RE-RUNNING ON EXISTING DATABASE
+-- ----------------------------------------------------------------------------
+alter table if exists public.income drop constraint if exists income_receipt_number_key;
+alter table if exists public.income drop constraint if exists income_receipt_number_unique;
+alter table if exists public.income drop constraint if exists income_cycle_receipt_number_key;
+
+alter table if exists public.expense drop constraint if exists expense_voucher_number_key;
+alter table if exists public.expense drop constraint if exists expense_voucher_number_unique;
+alter table if exists public.expense drop constraint if exists expense_cycle_voucher_number_key;
+
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'receipt_counter' and data_type = 'uuid'
+  ) then
+    drop table public.receipt_counter cascade;
+  end if;
+
+  if exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'voucher_counter' and data_type = 'uuid'
+  ) then
+    drop table public.voucher_counter cascade;
+  end if;
+end $$;
+
+-- ----------------------------------------------------------------------------
 -- 1. TABLES
 -- ----------------------------------------------------------------------------
 
@@ -27,14 +55,16 @@ create table if not exists public.expense_heads (
 
 -- 1.3 RECEIPT COUNTER (Single-row tracking table)
 create table if not exists public.receipt_counter (
-  id uuid primary key default gen_random_uuid(),
-  current_number integer not null default 0
+  id integer primary key default 1,
+  current_number integer not null default 0,
+  constraint receipt_counter_single_row check (id = 1)
 );
 
 -- 1.4 VOUCHER COUNTER (Single-row tracking table)
 create table if not exists public.voucher_counter (
-  id uuid primary key default gen_random_uuid(),
-  current_number integer not null default 0
+  id integer primary key default 1,
+  current_number integer not null default 0,
+  constraint voucher_counter_single_row check (id = 1)
 );
 
 -- 1.5 INCOME
@@ -94,7 +124,9 @@ begin
     true,
     false
   )
-  on conflict (id) do nothing;
+  on conflict (id) do update set
+    full_name = excluded.full_name,
+    role = excluded.role;
   return new;
 end;
 $$;
@@ -112,15 +144,15 @@ insert into public.expense_heads (name) values
   ('Decoration'), ('Murti'), ('Prasad'), ('Lighting'), ('Mandap'), ('Other')
 on conflict (name) do nothing;
 
--- Seed single tracking row for receipt counter if empty
-insert into public.receipt_counter (current_number)
-select 0
-where not exists (select 1 from public.receipt_counter);
+-- Seed single tracking row for receipt counter
+insert into public.receipt_counter (id, current_number)
+values (1, 0)
+on conflict (id) do nothing;
 
--- Seed single tracking row for voucher counter if empty
-insert into public.voucher_counter (current_number)
-select 0
-where not exists (select 1 from public.voucher_counter);
+-- Seed single tracking row for voucher counter
+insert into public.voucher_counter (id, current_number)
+values (1, 0)
+on conflict (id) do nothing;
 
 -- ----------------------------------------------------------------------------
 -- 5. RPC FUNCTIONS
@@ -143,14 +175,25 @@ set search_path = public
 as $$
 declare
   v_next_number integer;
+  v_collected_by uuid;
   v_row public.income;
 begin
   perform pg_advisory_xact_lock(hashtext('receipt_counter'));
 
+  insert into public.receipt_counter (id, current_number)
+  values (1, 0)
+  on conflict (id) do nothing;
+
   update public.receipt_counter
     set current_number = current_number + 1
-    where id = (select id from public.receipt_counter limit 1)
+    where id = 1
     returning current_number into v_next_number;
+
+  if p_collected_by is not null and exists (select 1 from public.users where id = p_collected_by) then
+    v_collected_by := p_collected_by;
+  else
+    v_collected_by := null;
+  end if;
 
   insert into public.income (
     receipt_number,
@@ -167,7 +210,7 @@ begin
     p_donor_name,
     p_mobile_number,
     p_payment_mode,
-    p_collected_by,
+    v_collected_by,
     p_collected_by_name,
     auth.uid()
   )
@@ -194,14 +237,25 @@ set search_path = public
 as $$
 declare
   v_next_number integer;
+  v_paid_by uuid;
   v_row public.expense;
 begin
   perform pg_advisory_xact_lock(hashtext('voucher_counter'));
 
+  insert into public.voucher_counter (id, current_number)
+  values (1, 0)
+  on conflict (id) do nothing;
+
   update public.voucher_counter
     set current_number = current_number + 1
-    where id = (select id from public.voucher_counter limit 1)
+    where id = 1
     returning current_number into v_next_number;
+
+  if p_paid_by is not null and exists (select 1 from public.users where id = p_paid_by) then
+    v_paid_by := p_paid_by;
+  else
+    v_paid_by := null;
+  end if;
 
   insert into public.expense (
     voucher_number,
@@ -218,7 +272,7 @@ begin
     p_paid_to,
     p_expense_head,
     p_payment_mode,
-    p_paid_by,
+    v_paid_by,
     p_paid_by_name,
     auth.uid()
   )
@@ -244,9 +298,14 @@ begin
   end if;
 
   delete from public.income;
+
+  insert into public.receipt_counter (id, current_number)
+  values (1, 0)
+  on conflict (id) do update set current_number = 0;
+
   update public.receipt_counter
     set current_number = 0
-    where id = (select id from public.receipt_counter limit 1);
+    where id = 1;
 end;
 $$;
 
@@ -266,9 +325,14 @@ begin
   end if;
 
   delete from public.expense;
+
+  insert into public.voucher_counter (id, current_number)
+  values (1, 0)
+  on conflict (id) do update set current_number = 0;
+
   update public.voucher_counter
     set current_number = 0
-    where id = (select id from public.voucher_counter limit 1);
+    where id = 1;
 end;
 $$;
 
