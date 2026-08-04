@@ -15,5 +15,9 @@ export default async function RootPage() {
     .eq("id", user.id)
     .single();
 
-  redirect(profile?.role === "admin" ? "/dashboard" : "/my-records");
+  if (!profile || (profile.role !== "admin" && profile.role !== "collector")) {
+    redirect("/login?missingProfile=1");
+  }
+
+  redirect(profile.role === "admin" ? "/dashboard" : "/my-records");
 }

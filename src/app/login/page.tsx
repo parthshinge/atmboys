@@ -65,13 +65,29 @@ function LoginForm() {
         .eq("id", user.id)
         .single();
 
-      if (profile && profile.is_active === false) {
+      if (!profile) {
+        await supabase.auth.signOut();
+        setError(
+          "Your account is missing an application profile. Contact the administrator to register your account."
+        );
+        return;
+      }
+
+      if (profile.is_active === false) {
         await supabase.auth.signOut();
         setError("Your account has been deactivated. Contact the admin.");
         return;
       }
 
-      router.push(profile?.role === "admin" ? "/dashboard" : "/my-records");
+      if (profile.role !== "admin" && profile.role !== "collector") {
+        await supabase.auth.signOut();
+        setError(
+          "Your account role is invalid. Contact the administrator to fix your account."
+        );
+        return;
+      }
+
+      router.push(profile.role === "admin" ? "/dashboard" : "/my-records");
       router.refresh();
       return;
     }
