@@ -25,15 +25,33 @@ export default function DashboardPage() {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
-    const incomeQuery = supabase.from("income").select("amount, created_at");
-    const expenseQuery = supabase.from("expense").select("amount, created_at");
-    const recentIncomeQuery = supabase.from("income").select("*").order("created_at", {
-      ascending: false,
-    })
+    const { data: cycleInfo } = await supabase.rpc("get_active_cycle_info");
+    const receiptCycle = cycleInfo?.receipt_cycle_number ?? 1;
+    const voucherCycle = cycleInfo?.voucher_cycle_number ?? 1;
+
+    const incomeQuery = supabase
+      .from("income")
+      .select("amount, created_at")
+      .eq("cycle_number", receiptCycle);
+    const expenseQuery = supabase
+      .from("expense")
+      .select("amount, created_at")
+      .eq("cycle_number", voucherCycle);
+    const recentIncomeQuery = supabase
+      .from("income")
+      .select("*")
+      .eq("cycle_number", receiptCycle)
+      .order("created_at", {
+        ascending: false,
+      })
       .limit(10);
-    const recentExpenseQuery = supabase.from("expense").select("*").order("created_at", {
-      ascending: false,
-    })
+    const recentExpenseQuery = supabase
+      .from("expense")
+      .select("*")
+      .eq("cycle_number", voucherCycle)
+      .order("created_at", {
+        ascending: false,
+      })
       .limit(10);
 
     const [

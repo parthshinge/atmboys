@@ -16,12 +16,25 @@ export default function MyRecordsPage() {
   useEffect(() => {
     async function load() {
       const supabase = createClient();
-      // RLS automatically restricts these queries to the logged-in
-      // collector's own records. After the counter reset, collectors still
-      // see their own historical income and expense entries.
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
       const [{ data: incomeData }, { data: expenseData }] = await Promise.all([
-        supabase.from("income").select("*").order("created_at", { ascending: false }),
-        supabase.from("expense").select("*").order("created_at", { ascending: false }),
+        supabase
+          .from("income")
+          .select("*")
+          .eq("created_by", user.id)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("expense")
+          .select("*")
+          .eq("created_by", user.id)
+          .order("created_at", { ascending: false }),
       ]);
       setIncome(incomeData ?? []);
       setExpense(expenseData ?? []);

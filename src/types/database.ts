@@ -13,6 +13,7 @@ export interface AppUser {
 export interface IncomeEntry {
   id: string;
   receipt_number: number;
+  cycle_number?: number;
   amount: number;
   donor_name: string;
   mobile_number: string | null;
@@ -26,6 +27,7 @@ export interface IncomeEntry {
 export interface ExpenseEntry {
   id: string;
   voucher_number: number;
+  cycle_number?: number;
   amount: number;
   paid_to: string;
   expense_head: string;

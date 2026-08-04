@@ -61,7 +61,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  const homeForRole = role === "collector" ? "/my-records" : "/dashboard";
+  const homeForRole = "/dashboard";
 
   if (user && path === "/login") {
     return NextResponse.redirect(new URL(homeForRole, request.url));

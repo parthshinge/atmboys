@@ -19,5 +19,5 @@ export default async function RootPage() {
     redirect("/login?missingProfile=1");
   }
 
-  redirect(profile.role === "admin" ? "/dashboard" : "/my-records");
+  redirect("/dashboard");
 }

@@ -87,7 +87,7 @@ function LoginForm() {
         return;
       }
 
-      router.push(profile.role === "admin" ? "/dashboard" : "/my-records");
+      router.push("/dashboard");
       router.refresh();
       return;
     }

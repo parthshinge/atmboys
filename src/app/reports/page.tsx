@@ -32,33 +32,30 @@ export default function ReportsPage() {
     const to = new Date(toDate);
     to.setHours(23, 59, 59, 999);
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    const { data: profile } = await supabase
-      .from("users")
-      .select("role, full_report_access")
-      .eq("id", user?.id ?? "")
-      .single();
+    const { data: cycleInfo } = await supabase.rpc("get_active_cycle_info");
+    const receiptCycle = cycleInfo?.receipt_cycle_number ?? 1;
+    const voucherCycle = cycleInfo?.voucher_cycle_number ?? 1;
+    const receiptCycleStart = cycleInfo?.receipt_cycle_started_at
+      ? new Date(cycleInfo.receipt_cycle_started_at)
+      : null;
+    const voucherCycleStart = cycleInfo?.voucher_cycle_started_at
+      ? new Date(cycleInfo.voucher_cycle_started_at)
+      : null;
 
-    const restrict = profile?.role !== "admin" && !profile?.full_report_access;
     const incomeQuery = supabase
       .from("income")
       .select("*")
-      .gte("created_at", from.toISOString())
+      .eq("cycle_number", receiptCycle)
+      .gte("created_at", receiptCycleStart && from < receiptCycleStart ? receiptCycleStart.toISOString() : from.toISOString())
       .lte("created_at", to.toISOString())
       .order("receipt_number", { ascending: true });
     const expenseQuery = supabase
       .from("expense")
       .select("*")
-      .gte("created_at", from.toISOString())
+      .eq("cycle_number", voucherCycle)
+      .gte("created_at", voucherCycleStart && from < voucherCycleStart ? voucherCycleStart.toISOString() : from.toISOString())
       .lte("created_at", to.toISOString())
       .order("voucher_number", { ascending: true });
-
-    if (restrict && user?.id) {
-      incomeQuery.eq("created_by", user.id);
-      expenseQuery.eq("created_by", user.id);
-    }
 
     const [{ data: incomeData }, { data: expenseData }] = await Promise.all([
       incomeQuery,
