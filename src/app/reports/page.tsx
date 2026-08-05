@@ -57,6 +57,25 @@ export default function ReportsPage() {
 
   useEffect(() => {
     loadData();
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel("reports-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "income" },
+        () => loadData()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "expense" },
+        () => loadData()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

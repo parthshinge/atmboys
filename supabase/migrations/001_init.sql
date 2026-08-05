@@ -1,75 +1,55 @@
 -- ============================================================================
--- Production-Ready Supabase Schema (001_init.sql)
--- Complete, Idempotent Database Setup for Ganesh Mandal Ledger System
--- Compatible with Supabase, PostgreSQL, Next.js, Prisma, Vercel & TypeScript
+-- Ganesh Mandal Ledger System — Initial Schema
+-- Minimal schema: users, income, expense, receipt_counter, voucher_counter
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
--- 0. CLEANUP OLD CONSTRAINTS / STRUCTS IF RE-RUNNING ON EXISTING DATABASE
+-- 1. USERS (profile table mirroring auth.users, holds role)
 -- ----------------------------------------------------------------------------
-alter table if exists public.income drop constraint if exists income_receipt_number_key;
-alter table if exists public.income drop constraint if exists income_receipt_number_unique;
-alter table if exists public.income drop constraint if exists income_cycle_receipt_number_key;
-
-alter table if exists public.expense drop constraint if exists expense_voucher_number_key;
-alter table if exists public.expense drop constraint if exists expense_voucher_number_unique;
-alter table if exists public.expense drop constraint if exists expense_cycle_voucher_number_key;
-
-do $$
-begin
-  if exists (
-    select 1 from information_schema.columns 
-    where table_schema = 'public' and table_name = 'receipt_counter' and data_type = 'uuid'
-  ) then
-    drop table public.receipt_counter cascade;
-  end if;
-
-  if exists (
-    select 1 from information_schema.columns 
-    where table_schema = 'public' and table_name = 'voucher_counter' and data_type = 'uuid'
-  ) then
-    drop table public.voucher_counter cascade;
-  end if;
-end $$;
-
--- ----------------------------------------------------------------------------
--- 1. TABLES
--- ----------------------------------------------------------------------------
-
--- 1.1 USERS (Profile table mirroring auth.users)
 create table if not exists public.users (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text not null,
-  role text not null default 'collector' check (role in ('admin', 'collector')),
-  is_active boolean not null default true,
-  full_report_access boolean not null default false,
+  role text not null check (role in ('admin', 'collector')),
   created_at timestamptz not null default now()
 );
 
--- 1.2 EXPENSE HEADS (Lookup table for expense categories)
+-- ----------------------------------------------------------------------------
+-- 2. EXPENSE HEADS lookup (small, admin-managed list — required by the
+--    "Manage Expense Heads" admin feature). Seeded with the default heads.
+-- ----------------------------------------------------------------------------
 create table if not exists public.expense_heads (
   id uuid primary key default gen_random_uuid(),
   name text not null unique,
   created_at timestamptz not null default now()
 );
 
--- 1.3 RECEIPT COUNTER (Single-row tracking table)
+insert into public.expense_heads (name) values
+  ('Decoration'), ('Murti'), ('Prasad'), ('Lighting'), ('Mandap'), ('Other')
+on conflict (name) do nothing;
+
+-- ----------------------------------------------------------------------------
+-- 3. RECEIPT / VOUCHER COUNTERS — single-row tables, never touched directly
+--    by clients. Only mutated via the SECURITY DEFINER RPC functions below.
+-- ----------------------------------------------------------------------------
 create table if not exists public.receipt_counter (
-  id integer primary key default 1,
+  id smallint primary key default 1,
   current_number integer not null default 0,
-  constraint receipt_counter_single_row check (id = 1)
+  constraint single_row check (id = 1)
 );
+insert into public.receipt_counter (id, current_number) values (1, 0)
+on conflict (id) do nothing;
 
--- 1.4 VOUCHER COUNTER (Single-row tracking table)
 create table if not exists public.voucher_counter (
-  id integer primary key default 1,
+  id smallint primary key default 1,
   current_number integer not null default 0,
-  constraint voucher_counter_single_row check (id = 1)
+  constraint single_row check (id = 1)
 );
+insert into public.voucher_counter (id, current_number) values (1, 0)
+on conflict (id) do nothing;
 
--- 1.5 INCOME
--- Note: receipt_number is NOT unique (display serial number only).
--- UUID id is the only permanent unique identifier.
+-- ----------------------------------------------------------------------------
+-- 4. INCOME
+-- ----------------------------------------------------------------------------
 create table if not exists public.income (
   id uuid primary key default gen_random_uuid(),
   receipt_number integer not null,
@@ -77,15 +57,17 @@ create table if not exists public.income (
   donor_name text not null,
   mobile_number text,
   payment_mode text not null check (payment_mode in ('cash', 'online')),
-  collected_by uuid references public.users(id) on delete set null,
-  collected_by_name text not null default '',
-  created_by uuid references auth.users(id) on delete set null,
+  collected_by uuid references public.users(id),
+  collected_by_name text not null,
   created_at timestamptz not null default now()
 );
 
--- 1.6 EXPENSE
--- Note: voucher_number is NOT unique (display serial number only).
--- UUID id is the only permanent unique identifier.
+create index if not exists income_created_at_idx on public.income (created_at desc);
+create index if not exists income_receipt_number_idx on public.income (receipt_number);
+
+-- ----------------------------------------------------------------------------
+-- 5. EXPENSE
+-- ----------------------------------------------------------------------------
 create table if not exists public.expense (
   id uuid primary key default gen_random_uuid(),
   voucher_number integer not null,
@@ -93,81 +75,28 @@ create table if not exists public.expense (
   paid_to text not null,
   expense_head text not null,
   payment_mode text not null check (payment_mode in ('cash', 'online')),
-  paid_by uuid references public.users(id) on delete set null,
-  paid_by_name text not null default '',
-  created_by uuid references auth.users(id) on delete set null,
+  paid_by uuid references public.users(id),
+  paid_by_name text not null,
   created_at timestamptz not null default now()
 );
 
--- ----------------------------------------------------------------------------
--- 2. INDEXES
--- ----------------------------------------------------------------------------
-create index if not exists income_created_at_idx on public.income (created_at desc);
-create index if not exists income_receipt_number_idx on public.income (receipt_number);
 create index if not exists expense_created_at_idx on public.expense (created_at desc);
 create index if not exists expense_voucher_number_idx on public.expense (voucher_number);
 
--- ----------------------------------------------------------------------------
--- 3. AUTOMATIC PROFILE CREATION TRIGGER
--- ----------------------------------------------------------------------------
-create or replace function public.handle_new_user()
-returns trigger
-language plpgsql
-security definer set search_path = public
-as $$
-begin
-  insert into public.users (id, full_name, role, is_active, full_report_access)
-  values (
-    new.id,
-    coalesce(new.raw_user_meta_data->>'full_name', new.email, 'User'),
-    coalesce(new.raw_user_meta_data->>'role', 'collector'),
-    true,
-    false
-  )
-  on conflict (id) do update set
-    full_name = excluded.full_name,
-    role = excluded.role;
-  return new;
-end;
-$$;
+-- ============================================================================
+-- ATOMIC RPC FUNCTIONS
+-- Uses pg_advisory_xact_lock so concurrent calls are serialized within the
+-- transaction — guarantees no two collectors ever get the same number, even
+-- if they click Save at the exact same instant.
+-- ============================================================================
 
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute procedure public.handle_new_user();
-
--- ----------------------------------------------------------------------------
--- 4. SEED DATA
--- ----------------------------------------------------------------------------
--- Seed default expense heads
-insert into public.expense_heads (name) values
-  ('Decoration'), ('Murti'), ('Prasad'), ('Lighting'), ('Mandap'), ('Other')
-on conflict (name) do nothing;
-
--- Seed single tracking row for receipt counter
-insert into public.receipt_counter (id, current_number)
-values (1, 0)
-on conflict (id) do nothing;
-
--- Seed single tracking row for voucher counter
-insert into public.voucher_counter (id, current_number)
-values (1, 0)
-on conflict (id) do nothing;
-
--- ----------------------------------------------------------------------------
--- 5. RPC FUNCTIONS
--- ----------------------------------------------------------------------------
-
--- 5.1 create_income_entry()
--- Concurrency safe: uses pg_advisory_xact_lock, increments counter with explicit WHERE,
--- inserts receipt_number, stores auth.uid() in created_by, and returns inserted row.
 create or replace function public.create_income_entry(
   p_amount numeric,
   p_donor_name text,
-  p_mobile_number text default null,
-  p_payment_mode text default 'cash',
-  p_collected_by uuid default null,
-  p_collected_by_name text default ''
+  p_mobile_number text,
+  p_payment_mode text,
+  p_collected_by uuid,
+  p_collected_by_name text
 ) returns public.income
 language plpgsql
 security definer
@@ -175,44 +104,22 @@ set search_path = public
 as $$
 declare
   v_next_number integer;
-  v_collected_by uuid;
   v_row public.income;
 begin
+  -- Serialize all concurrent callers on this specific lock key for this transaction.
   perform pg_advisory_xact_lock(hashtext('receipt_counter'));
-
-  insert into public.receipt_counter (id, current_number)
-  values (1, 0)
-  on conflict (id) do nothing;
 
   update public.receipt_counter
     set current_number = current_number + 1
     where id = 1
     returning current_number into v_next_number;
 
-  if p_collected_by is not null and exists (select 1 from public.users where id = p_collected_by) then
-    v_collected_by := p_collected_by;
-  else
-    v_collected_by := null;
-  end if;
-
   insert into public.income (
-    receipt_number,
-    amount,
-    donor_name,
-    mobile_number,
-    payment_mode,
-    collected_by,
-    collected_by_name,
-    created_by
+    receipt_number, amount, donor_name, mobile_number,
+    payment_mode, collected_by, collected_by_name
   ) values (
-    v_next_number,
-    p_amount,
-    p_donor_name,
-    p_mobile_number,
-    p_payment_mode,
-    v_collected_by,
-    p_collected_by_name,
-    auth.uid()
+    v_next_number, p_amount, p_donor_name, p_mobile_number,
+    p_payment_mode, p_collected_by, p_collected_by_name
   )
   returning * into v_row;
 
@@ -220,16 +127,13 @@ begin
 end;
 $$;
 
--- 5.2 create_expense_entry()
--- Concurrency safe: uses pg_advisory_xact_lock, increments counter with explicit WHERE,
--- inserts voucher_number, stores auth.uid() in created_by, and returns inserted row.
 create or replace function public.create_expense_entry(
   p_amount numeric,
   p_paid_to text,
   p_expense_head text,
-  p_payment_mode text default 'cash',
-  p_paid_by uuid default null,
-  p_paid_by_name text default ''
+  p_payment_mode text,
+  p_paid_by uuid,
+  p_paid_by_name text
 ) returns public.expense
 language plpgsql
 security definer
@@ -237,44 +141,19 @@ set search_path = public
 as $$
 declare
   v_next_number integer;
-  v_paid_by uuid;
   v_row public.expense;
 begin
   perform pg_advisory_xact_lock(hashtext('voucher_counter'));
-
-  insert into public.voucher_counter (id, current_number)
-  values (1, 0)
-  on conflict (id) do nothing;
 
   update public.voucher_counter
     set current_number = current_number + 1
     where id = 1
     returning current_number into v_next_number;
 
-  if p_paid_by is not null and exists (select 1 from public.users where id = p_paid_by) then
-    v_paid_by := p_paid_by;
-  else
-    v_paid_by := null;
-  end if;
-
   insert into public.expense (
-    voucher_number,
-    amount,
-    paid_to,
-    expense_head,
-    payment_mode,
-    paid_by,
-    paid_by_name,
-    created_by
+    voucher_number, amount, paid_to, expense_head, payment_mode, paid_by, paid_by_name
   ) values (
-    v_next_number,
-    p_amount,
-    p_paid_to,
-    p_expense_head,
-    p_payment_mode,
-    v_paid_by,
-    p_paid_by_name,
-    auth.uid()
+    v_next_number, p_amount, p_paid_to, p_expense_head, p_payment_mode, p_paid_by, p_paid_by_name
   )
   returning * into v_row;
 
@@ -282,8 +161,7 @@ begin
 end;
 $$;
 
--- 5.3 reset_receipt_counter()
--- Admin-only reset: deletes all income records and resets counter to 0 (next receipt = 1).
+-- Admin-only: reset counters (optional feature from spec).
 create or replace function public.reset_receipt_counter()
 returns void
 language plpgsql
@@ -296,21 +174,11 @@ begin
   ) then
     raise exception 'Only admin can reset the receipt counter';
   end if;
-
   delete from public.income;
-
-  insert into public.receipt_counter (id, current_number)
-  values (1, 0)
-  on conflict (id) do update set current_number = 0;
-
-  update public.receipt_counter
-    set current_number = 0
-    where id = 1;
+  update public.receipt_counter set current_number = 0 where id = 1;
 end;
 $$;
 
--- 5.4 reset_voucher_counter()
--- Admin-only reset: deletes all expense records and resets counter to 0 (next voucher = 1).
 create or replace function public.reset_voucher_counter()
 returns void
 language plpgsql
@@ -323,28 +191,41 @@ begin
   ) then
     raise exception 'Only admin can reset the voucher counter';
   end if;
-
   delete from public.expense;
-
-  insert into public.voucher_counter (id, current_number)
-  values (1, 0)
-  on conflict (id) do update set current_number = 0;
-
-  update public.voucher_counter
-    set current_number = 0
-    where id = 1;
+  update public.voucher_counter set current_number = 0 where id = 1;
 end;
 $$;
 
--- Grant execution privileges on RPC functions to authenticated users
+create or replace function public.fresh_start()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not exists (
+    select 1 from public.users where id = auth.uid() and role = 'admin'
+  ) then
+    raise exception 'Only admin can perform a Fresh Start';
+  end if;
+
+  delete from public.income;
+  delete from public.expense;
+
+  update public.receipt_counter set current_number = 0 where id = 1;
+  update public.voucher_counter set current_number = 0 where id = 1;
+end;
+$$;
+
 grant execute on function public.create_income_entry to authenticated;
 grant execute on function public.create_expense_entry to authenticated;
 grant execute on function public.reset_receipt_counter to authenticated;
 grant execute on function public.reset_voucher_counter to authenticated;
+grant execute on function public.fresh_start to authenticated;
 
--- ----------------------------------------------------------------------------
--- 6. ROW LEVEL SECURITY (RLS) & POLICIES
--- ----------------------------------------------------------------------------
+-- ============================================================================
+-- ROW LEVEL SECURITY
+-- ============================================================================
 
 alter table public.users enable row level security;
 alter table public.income enable row level security;
@@ -353,8 +234,11 @@ alter table public.expense_heads enable row level security;
 alter table public.receipt_counter enable row level security;
 alter table public.voucher_counter enable row level security;
 
--- 6.1 USERS POLICIES
--- Everyone authenticated can SELECT. Admin can INSERT, UPDATE, DELETE.
+-- receipt_counter / voucher_counter: no client policies at all.
+-- They are only ever touched by the SECURITY DEFINER functions above.
+
+-- users: any authenticated user can read the list (needed for the
+-- "Collected By" dropdown); only admins can write.
 drop policy if exists "users_select_all_authenticated" on public.users;
 create policy "users_select_all_authenticated" on public.users
   for select to authenticated using (true);
@@ -377,23 +261,22 @@ create policy "users_admin_delete" on public.users
     exists (select 1 from public.users u where u.id = auth.uid() and u.role = 'admin')
   );
 
--- 6.2 EXPENSE HEADS POLICIES
--- Everyone can SELECT. Admin manages (INSERT, UPDATE, DELETE).
+-- expense_heads: everyone reads, only admin manages.
 drop policy if exists "expense_heads_select_all" on public.expense_heads;
 create policy "expense_heads_select_all" on public.expense_heads
-  for select using (true);
+  for select to authenticated using (true);
 
-drop policy if exists "expense_heads_admin_all" on public.expense_heads;
-create policy "expense_heads_admin_all" on public.expense_heads
+drop policy if exists "expense_heads_admin_write" on public.expense_heads;
+create policy "expense_heads_admin_write" on public.expense_heads
   for all to authenticated using (
     exists (select 1 from public.users u where u.id = auth.uid() and u.role = 'admin')
   ) with check (
     exists (select 1 from public.users u where u.id = auth.uid() and u.role = 'admin')
   );
 
--- 6.3 INCOME POLICIES
--- Everyone authenticated can SELECT (Shared Dashboard, Shared Reports, Shared Recent Transactions).
--- Admin UPDATE/DELETE only.
+-- income: all authenticated can read + insert (via RPC, but direct insert
+-- policy kept as a safety net is intentionally omitted — inserts must go
+-- through create_income_entry). Only admin can update/delete.
 drop policy if exists "income_select_all" on public.income;
 create policy "income_select_all" on public.income
   for select to authenticated using (true);
@@ -410,9 +293,7 @@ create policy "income_admin_delete" on public.income
     exists (select 1 from public.users u where u.id = auth.uid() and u.role = 'admin')
   );
 
--- 6.4 EXPENSE POLICIES
--- Everyone authenticated can SELECT (Shared Dashboard, Shared Reports, Shared Recent Transactions).
--- Admin UPDATE/DELETE only.
+-- expense: same pattern as income.
 drop policy if exists "expense_select_all" on public.expense;
 create policy "expense_select_all" on public.expense
   for select to authenticated using (true);
@@ -429,9 +310,9 @@ create policy "expense_admin_delete" on public.expense
     exists (select 1 from public.users u where u.id = auth.uid() and u.role = 'admin')
   );
 
--- ----------------------------------------------------------------------------
--- 7. SUPABASE REALTIME
--- ----------------------------------------------------------------------------
+-- ============================================================================
+-- REALTIME — publish income & expense so the dashboard updates live
+-- ============================================================================
 do $$
 begin
   if not exists (

@@ -140,6 +140,33 @@ export default function AdminPageClient() {
     loadData();
   }
 
+  async function handleFreshStart() {
+    if (
+      !confirm(
+        "🔄 Fresh Start: This will delete ALL income and expense records and restart receipt & voucher counters from 1. Users, roles, and expense heads will NOT be deleted. Are you sure?"
+      )
+    )
+      return;
+    setBusy(true);
+    const supabase = createClient();
+    let { error } = await supabase.rpc("fresh_start");
+    if (error) {
+      const res1 = await supabase.rpc("reset_receipt_counter");
+      const res2 = await supabase.rpc("reset_voucher_counter");
+      error = res1.error || res2.error;
+    }
+    setBusy(false);
+    if (error) {
+      setMessage(error.message);
+    } else {
+      setMessage("🔄 Fresh Start completed — all ledger data deleted and counters reset to 0.");
+      await loadData();
+      if (typeof window !== "undefined") {
+        window.location.reload();
+      }
+    }
+  }
+
   async function handleResetReceiptCounter() {
     if (
       !confirm(
@@ -418,20 +445,29 @@ export default function AdminPageClient() {
               <FileBarChart size={16} /> View Reports / Download Excel
             </Link>
             <button
-              onClick={handleResetReceiptCounter}
-              className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
+              onClick={handleFreshStart}
+              disabled={busy}
+              className="flex items-center gap-2 rounded-lg border border-red-300 bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 shadow-sm disabled:opacity-60"
             >
-              <RotateCcw size={16} /> Full Reset: Delete All Income & Reset Counter
+              <RotateCcw size={16} /> 🔄 Fresh Start (Reset All Ledger Data)
+            </button>
+            <button
+              onClick={handleResetReceiptCounter}
+              disabled={busy}
+              className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-60"
+            >
+              <RotateCcw size={16} /> Reset Income Only
             </button>
             <button
               onClick={handleResetVoucherCounter}
-              className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
+              disabled={busy}
+              className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-60"
             >
-              <RotateCcw size={16} /> Full Reset: Delete All Expense & Reset Counter
+              <RotateCcw size={16} /> Reset Expense Only
             </button>
           </div>
           <p className="mt-3 text-xs text-gray-400">
-            Full Reset deletes all records and restarts numbering from 1. Dashboard and reports will be empty after reset.
+            Fresh Start deletes all income and expense records and restarts receipt & voucher numbers from 1. Users, roles, and expense heads are preserved.
           </p>
         </section>
       </main>

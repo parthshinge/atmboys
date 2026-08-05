@@ -88,12 +88,12 @@ export default function DashboardPage() {
       .channel("dashboard-realtime")
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "income" },
+        { event: "*", schema: "public", table: "income" },
         () => loadData()
       )
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "expense" },
+        { event: "*", schema: "public", table: "expense" },
         () => loadData()
       )
       .subscribe();
@@ -111,13 +111,13 @@ export default function DashboardPage() {
       <main className="mx-auto max-w-5xl px-4 py-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <StatCard
-            label="Today's Income"
-            value={formatCurrency(todayIncome)}
+            label="Total Income"
+            value={formatCurrency(totalIncome)}
             icon={<ArrowUpCircle className="text-green-600" size={22} />}
           />
           <StatCard
-            label="Today's Expense"
-            value={formatCurrency(todayExpense)}
+            label="Total Expense"
+            value={formatCurrency(totalExpense)}
             icon={<ArrowDownCircle className="text-red-600" size={22} />}
           />
           <StatCard
