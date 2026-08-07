@@ -13,8 +13,6 @@ type Transaction =
   | ({ kind: "expense" } & ExpenseEntry);
 
 export default function DashboardPage() {
-  const [todayIncome, setTodayIncome] = useState(0);
-  const [todayExpense, setTodayExpense] = useState(0);
   const [totalIncome, setTotalIncome] = useState(0);
   const [totalExpense, setTotalExpense] = useState(0);
   const [recent, setRecent] = useState<Transaction[]>([]);
@@ -22,15 +20,13 @@ export default function DashboardPage() {
 
   const loadData = useCallback(async () => {
     const supabase = createClient();
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
 
     const incomeQuery = supabase
       .from("income")
-      .select("amount, created_at");
+      .select("amount");
     const expenseQuery = supabase
       .from("expense")
-      .select("amount, created_at");
+      .select("amount");
     const recentIncomeQuery = supabase
       .from("income")
       .select("*")
@@ -58,17 +54,10 @@ export default function DashboardPage() {
 
     const totalIncomeValue = income.reduce((sum, r) => sum + Number(r.amount), 0);
     const totalExpenseValue = expense.reduce((sum, r) => sum + Number(r.amount), 0);
-    const todayIncomeValue = income
-      .filter((r) => new Date(r.created_at) >= startOfDay)
-      .reduce((sum, r) => sum + Number(r.amount), 0);
-    const todayExpenseValue = expense
-      .filter((r) => new Date(r.created_at) >= startOfDay)
-      .reduce((sum, r) => sum + Number(r.amount), 0);
 
     setTotalIncome(totalIncomeValue);
     setTotalExpense(totalExpenseValue);
-    setTodayIncome(todayIncomeValue);
-    setTodayExpense(todayExpenseValue);
+
     const combined: Transaction[] = [
       ...(recentIncome ?? []).map((r) => ({ kind: "income" as const, ...r })),
       ...(recentExpense ?? []).map((r) => ({ kind: "expense" as const, ...r })),

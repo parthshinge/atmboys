@@ -1,6 +1,6 @@
 -- ============================================================================
 -- Ganesh Mandal Ledger System — Initial Schema
--- Minimal schema: users, income, expense, receipt_counter, voucher_counter
+-- Schema: users, income, expense, receipt_counter, voucher_counter, expense_heads
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
@@ -15,7 +15,7 @@ create table if not exists public.users (
 
 -- ----------------------------------------------------------------------------
 -- 2. EXPENSE HEADS lookup (small, admin-managed list — required by the
---    "Manage Expense Heads" admin feature). Seeded with the default heads.
+--    "Manage Expense Heads" admin feature). Seeded with default heads.
 -- ----------------------------------------------------------------------------
 create table if not exists public.expense_heads (
   id uuid primary key default gen_random_uuid(),
@@ -29,20 +29,18 @@ on conflict (name) do nothing;
 
 -- ----------------------------------------------------------------------------
 -- 3. RECEIPT / VOUCHER COUNTERS — single-row tables, never touched directly
---    by clients. Only mutated via the SECURITY DEFINER RPC functions below.
+--    by clients. Only mutated via SECURITY DEFINER RPC functions.
 -- ----------------------------------------------------------------------------
 create table if not exists public.receipt_counter (
-  id smallint primary key default 1,
-  current_number integer not null default 0,
-  constraint single_row check (id = 1)
+  id smallint primary key default 1 check (id = 1),
+  current_number integer not null default 0
 );
 insert into public.receipt_counter (id, current_number) values (1, 0)
 on conflict (id) do nothing;
 
 create table if not exists public.voucher_counter (
-  id smallint primary key default 1,
-  current_number integer not null default 0,
-  constraint single_row check (id = 1)
+  id smallint primary key default 1 check (id = 1),
+  current_number integer not null default 0
 );
 insert into public.voucher_counter (id, current_number) values (1, 0)
 on conflict (id) do nothing;
@@ -59,6 +57,7 @@ create table if not exists public.income (
   payment_mode text not null check (payment_mode in ('cash', 'online')),
   collected_by uuid references public.users(id),
   collected_by_name text not null,
+  created_by uuid references auth.users(id) default auth.uid(),
   created_at timestamptz not null default now()
 );
 
@@ -77,6 +76,7 @@ create table if not exists public.expense (
   payment_mode text not null check (payment_mode in ('cash', 'online')),
   paid_by uuid references public.users(id),
   paid_by_name text not null,
+  created_by uuid references auth.users(id) default auth.uid(),
   created_at timestamptz not null default now()
 );
 
@@ -86,8 +86,7 @@ create index if not exists expense_voucher_number_idx on public.expense (voucher
 -- ============================================================================
 -- ATOMIC RPC FUNCTIONS
 -- Uses pg_advisory_xact_lock so concurrent calls are serialized within the
--- transaction — guarantees no two collectors ever get the same number, even
--- if they click Save at the exact same instant.
+-- transaction — guarantees no two collectors ever get the same number.
 -- ============================================================================
 
 create or replace function public.create_income_entry(
@@ -106,7 +105,7 @@ declare
   v_next_number integer;
   v_row public.income;
 begin
-  -- Serialize all concurrent callers on this specific lock key for this transaction.
+  -- Serialize concurrent callers on receipt_counter lock key
   perform pg_advisory_xact_lock(hashtext('receipt_counter'));
 
   update public.receipt_counter
@@ -116,10 +115,10 @@ begin
 
   insert into public.income (
     receipt_number, amount, donor_name, mobile_number,
-    payment_mode, collected_by, collected_by_name
+    payment_mode, collected_by, collected_by_name, created_by
   ) values (
     v_next_number, p_amount, p_donor_name, p_mobile_number,
-    p_payment_mode, p_collected_by, p_collected_by_name
+    p_payment_mode, p_collected_by, p_collected_by_name, auth.uid()
   )
   returning * into v_row;
 
@@ -143,6 +142,7 @@ declare
   v_next_number integer;
   v_row public.expense;
 begin
+  -- Serialize concurrent callers on voucher_counter lock key
   perform pg_advisory_xact_lock(hashtext('voucher_counter'));
 
   update public.voucher_counter
@@ -151,48 +151,13 @@ begin
     returning current_number into v_next_number;
 
   insert into public.expense (
-    voucher_number, amount, paid_to, expense_head, payment_mode, paid_by, paid_by_name
+    voucher_number, amount, paid_to, expense_head, payment_mode, paid_by, paid_by_name, created_by
   ) values (
-    v_next_number, p_amount, p_paid_to, p_expense_head, p_payment_mode, p_paid_by, p_paid_by_name
+    v_next_number, p_amount, p_paid_to, p_expense_head, p_payment_mode, p_paid_by, p_paid_by_name, auth.uid()
   )
   returning * into v_row;
 
   return v_row;
-end;
-$$;
-
--- Admin-only: reset counters (optional feature from spec).
-create or replace function public.reset_receipt_counter()
-returns void
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  if not exists (
-    select 1 from public.users where id = auth.uid() and role = 'admin'
-  ) then
-    raise exception 'Only admin can reset the receipt counter';
-  end if;
-  delete from public.income;
-  update public.receipt_counter set current_number = 0 where id = 1;
-end;
-$$;
-
-create or replace function public.reset_voucher_counter()
-returns void
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  if not exists (
-    select 1 from public.users where id = auth.uid() and role = 'admin'
-  ) then
-    raise exception 'Only admin can reset the voucher counter';
-  end if;
-  delete from public.expense;
-  update public.voucher_counter set current_number = 0 where id = 1;
 end;
 $$;
 
@@ -219,8 +184,6 @@ $$;
 
 grant execute on function public.create_income_entry to authenticated;
 grant execute on function public.create_expense_entry to authenticated;
-grant execute on function public.reset_receipt_counter to authenticated;
-grant execute on function public.reset_voucher_counter to authenticated;
 grant execute on function public.fresh_start to authenticated;
 
 -- ============================================================================
@@ -234,11 +197,7 @@ alter table public.expense_heads enable row level security;
 alter table public.receipt_counter enable row level security;
 alter table public.voucher_counter enable row level security;
 
--- receipt_counter / voucher_counter: no client policies at all.
--- They are only ever touched by the SECURITY DEFINER functions above.
-
--- users: any authenticated user can read the list (needed for the
--- "Collected By" dropdown); only admins can write.
+-- users: authenticated can select; admin can write.
 drop policy if exists "users_select_all_authenticated" on public.users;
 create policy "users_select_all_authenticated" on public.users
   for select to authenticated using (true);
@@ -274,12 +233,16 @@ create policy "expense_heads_admin_write" on public.expense_heads
     exists (select 1 from public.users u where u.id = auth.uid() and u.role = 'admin')
   );
 
--- income: all authenticated can read + insert (via RPC, but direct insert
--- policy kept as a safety net is intentionally omitted — inserts must go
--- through create_income_entry). Only admin can update/delete.
+-- income: authenticated can select; admin can insert, update, delete.
 drop policy if exists "income_select_all" on public.income;
 create policy "income_select_all" on public.income
   for select to authenticated using (true);
+
+drop policy if exists "income_admin_insert" on public.income;
+create policy "income_admin_insert" on public.income
+  for insert to authenticated with check (
+    exists (select 1 from public.users u where u.id = auth.uid() and u.role = 'admin')
+  );
 
 drop policy if exists "income_admin_update" on public.income;
 create policy "income_admin_update" on public.income
@@ -293,10 +256,16 @@ create policy "income_admin_delete" on public.income
     exists (select 1 from public.users u where u.id = auth.uid() and u.role = 'admin')
   );
 
--- expense: same pattern as income.
+-- expense: authenticated can select; admin can insert, update, delete.
 drop policy if exists "expense_select_all" on public.expense;
 create policy "expense_select_all" on public.expense
   for select to authenticated using (true);
+
+drop policy if exists "expense_admin_insert" on public.expense;
+create policy "expense_admin_insert" on public.expense
+  for insert to authenticated with check (
+    exists (select 1 from public.users u where u.id = auth.uid() and u.role = 'admin')
+  );
 
 drop policy if exists "expense_admin_update" on public.expense;
 create policy "expense_admin_update" on public.expense
@@ -311,7 +280,7 @@ create policy "expense_admin_delete" on public.expense
   );
 
 -- ============================================================================
--- REALTIME — publish income & expense so the dashboard updates live
+-- REALTIME — publish income & expense so subscribers receive updates live
 -- ============================================================================
 do $$
 begin

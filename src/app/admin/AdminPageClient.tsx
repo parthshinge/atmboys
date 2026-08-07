@@ -150,12 +150,7 @@ export default function AdminPageClient() {
     setBusy(true);
     setMessage(null);
     const supabase = createClient();
-    let { error } = await supabase.rpc("fresh_start");
-    if (error) {
-      const res1 = await supabase.rpc("reset_receipt_counter");
-      const res2 = await supabase.rpc("reset_voucher_counter");
-      error = res1.error || res2.error;
-    }
+    const { error } = await supabase.rpc("fresh_start");
     setBusy(false);
     if (error) {
       setMessage(error.message);

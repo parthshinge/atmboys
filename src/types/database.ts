@@ -19,6 +19,7 @@ export interface IncomeEntry {
   payment_mode: PaymentMode;
   collected_by: string | null;
   collected_by_name: string;
+  created_by?: string | null;
   created_at: string;
 }
 
@@ -31,6 +32,7 @@ export interface ExpenseEntry {
   payment_mode: PaymentMode;
   paid_by: string | null;
   paid_by_name: string;
+  created_by?: string | null;
   created_at: string;
 }
 
