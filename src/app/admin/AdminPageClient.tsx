@@ -148,6 +148,7 @@ export default function AdminPageClient() {
     )
       return;
     setBusy(true);
+    setMessage(null);
     const supabase = createClient();
     let { error } = await supabase.rpc("fresh_start");
     if (error) {
@@ -162,42 +163,8 @@ export default function AdminPageClient() {
       setMessage("🔄 Fresh Start completed — all ledger data deleted and counters reset to 0.");
       await loadData();
       if (typeof window !== "undefined") {
-        window.location.reload();
+        window.location.href = "/dashboard";
       }
-    }
-  }
-
-  async function handleResetReceiptCounter() {
-    if (
-      !confirm(
-        "Reset receipt counter? This will delete all income records and restart numbering from 1. This action cannot be undone."
-      )
-    )
-      return;
-    const supabase = createClient();
-    const { error } = await supabase.rpc("reset_receipt_counter");
-    if (error) {
-      setMessage(error.message);
-    } else {
-      setMessage("Receipt counter reset — all income records deleted.");
-      loadData();
-    }
-  }
-
-  async function handleResetVoucherCounter() {
-    if (
-      !confirm(
-        "Reset voucher counter? This will delete all expense records and restart numbering from 1. This action cannot be undone."
-      )
-    )
-      return;
-    const supabase = createClient();
-    const { error } = await supabase.rpc("reset_voucher_counter");
-    if (error) {
-      setMessage(error.message);
-    } else {
-      setMessage("Voucher counter reset — all expense records deleted.");
-      loadData();
     }
   }
 
@@ -451,23 +418,9 @@ export default function AdminPageClient() {
             >
               <RotateCcw size={16} /> 🔄 Fresh Start (Reset All Ledger Data)
             </button>
-            <button
-              onClick={handleResetReceiptCounter}
-              disabled={busy}
-              className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-60"
-            >
-              <RotateCcw size={16} /> Reset Income Only
-            </button>
-            <button
-              onClick={handleResetVoucherCounter}
-              disabled={busy}
-              className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-60"
-            >
-              <RotateCcw size={16} /> Reset Expense Only
-            </button>
           </div>
           <p className="mt-3 text-xs text-gray-400">
-            Fresh Start deletes all income and expense records and restarts receipt & voucher numbers from 1. Users, roles, and expense heads are preserved.
+            Fresh Start executes in one atomic transaction: deletes all income and expense records and resets receipt & voucher counters to 0 (next entry = No. 1). Users, roles, and expense heads remain intact.
           </p>
         </section>
       </main>
