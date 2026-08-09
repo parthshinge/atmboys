@@ -129,7 +129,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
           <div className="relative z-10">
             {/* Header with Logo on Left and Centered Title */}
             <div className="mb-4 flex items-center gap-3 border-b-2 border-dashed border-saffron-300 pb-3">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 flex-shrink-0">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 flex-shrink-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="/logo.png"
@@ -138,8 +138,8 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
                 />
               </div>
               <div className="flex-1 text-center pr-2">
-                <p className="text-sm sm:text-base font-bold text-saffron-600">|| नवसाचा गणपती ||</p>
-                <h2 className="mt-0.5 text-base sm:text-lg font-extrabold text-saffron-700 leading-tight">
+                <p className="text-base sm:text-lg font-bold text-saffron-600">|| नवसाचा गणपती ||</p>
+                <h2 className="mt-1 text-lg sm:text-xl font-extrabold text-saffron-700 leading-tight">
                   अष्टविनायक तरुण मंडळ, हिंगणगाव.
                 </h2>
               </div>
