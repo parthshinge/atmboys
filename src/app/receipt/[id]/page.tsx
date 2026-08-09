@@ -113,60 +113,73 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
 
         <div
           ref={receiptRef}
-          className="rounded-xl border-2 border-saffron-600 bg-white p-6 shadow-md font-sans"
+          className="relative overflow-hidden rounded-xl border-2 border-saffron-600 bg-white p-6 shadow-md font-sans"
         >
-          {/* Header with Logo on Left and Centered Title */}
-          <div className="mb-4 flex items-center gap-3 border-b-2 border-dashed border-saffron-300 pb-3">
-            <div className="w-14 h-14 sm:w-16 sm:h-16 flex-shrink-0">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/logo.png"
-                alt="Mandal Logo"
-                className="h-full w-full object-contain"
-              />
-            </div>
-            <div className="flex-1 text-center pr-2">
-              <p className="text-sm sm:text-base font-bold text-saffron-600">|| नवसाचा गणपती ||</p>
-              <h2 className="mt-0.5 text-base sm:text-lg font-extrabold text-saffron-700 leading-tight">
-                अष्टविनायक तरुण मंडळ, हिंगणगाव.
-              </h2>
-            </div>
+          {/* Background Watermark Image */}
+          <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center p-6 opacity-15">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/watermark.jpg"
+              alt="Watermark"
+              className="max-h-full max-w-full object-contain"
+            />
           </div>
 
-          <div className="space-y-2.5 text-sm">
-            <div className="flex justify-between items-center border-b border-gray-100 pb-1.5">
-              <span className="font-semibold text-gray-700">पावती क्र. :</span>
-              <span className="font-bold text-saffron-700">{padNumber(entry.receipt_number)}</span>
+          {/* Receipt Content */}
+          <div className="relative z-10">
+            {/* Header with Logo on Left and Centered Title */}
+            <div className="mb-4 flex items-center gap-3 border-b-2 border-dashed border-saffron-300 pb-3">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 flex-shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/logo.png"
+                  alt="Mandal Logo"
+                  className="h-full w-full object-contain"
+                />
+              </div>
+              <div className="flex-1 text-center pr-2">
+                <p className="text-sm sm:text-base font-bold text-saffron-600">|| नवसाचा गणपती ||</p>
+                <h2 className="mt-0.5 text-base sm:text-lg font-extrabold text-saffron-700 leading-tight">
+                  अष्टविनायक तरुण मंडळ, हिंगणगाव.
+                </h2>
+              </div>
             </div>
 
-            <div className="flex justify-between items-center border-b border-gray-100 pb-1.5">
-              <span className="font-semibold text-gray-700">देणगीदार :</span>
-              <span className="font-medium text-gray-900">{entry.donor_name}</span>
+            <div className="space-y-2.5 text-sm">
+              <div className="flex justify-between items-center border-b border-gray-100 pb-1.5">
+                <span className="font-semibold text-gray-700">पावती क्र. :</span>
+                <span className="font-bold text-saffron-700">{padNumber(entry.receipt_number)}</span>
+              </div>
+
+              <div className="flex justify-between items-center border-b border-gray-100 pb-1.5">
+                <span className="font-semibold text-gray-700">देणगीदार :</span>
+                <span className="font-medium text-gray-900">{entry.donor_name}</span>
+              </div>
+
+              <div className="flex justify-between items-center border-b border-gray-100 pb-1.5">
+                <span className="font-semibold text-gray-700">रक्कम :</span>
+                <span className="font-bold text-saffron-700">₹ {Number(entry.amount).toLocaleString("en-IN")}</span>
+              </div>
+
+              <div className="flex justify-between items-center border-b border-gray-100 pb-1.5">
+                <span className="font-semibold text-gray-700">देणगी स्वरूप :</span>
+                <span className="font-medium text-gray-900 capitalize">{entry.payment_mode}</span>
+              </div>
+
+              <div className="flex justify-between items-center border-b border-gray-100 pb-1.5">
+                <span className="font-semibold text-gray-700">स्वीकारकर्ता :</span>
+                <span className="font-medium text-gray-900">{entry.collected_by_name}</span>
+              </div>
+
+              <div className="flex justify-between items-center border-b border-gray-100 pb-1.5">
+                <span className="font-semibold text-gray-700">तारीख :</span>
+                <span className="font-medium text-gray-900">{formatDate(entry.created_at)}</span>
+              </div>
             </div>
 
-            <div className="flex justify-between items-center border-b border-gray-100 pb-1.5">
-              <span className="font-semibold text-gray-700">रक्कम :</span>
-              <span className="font-bold text-saffron-700">₹ {Number(entry.amount).toLocaleString("en-IN")}</span>
+            <div className="mt-6 pt-3 border-t border-saffron-200 text-center">
+              <p className="text-base font-bold text-saffron-700">🌸 गणपती बाप्पा मोरया 🙏</p>
             </div>
-
-            <div className="flex justify-between items-center border-b border-gray-100 pb-1.5">
-              <span className="font-semibold text-gray-700">देणगी स्वरूप :</span>
-              <span className="font-medium text-gray-900 capitalize">{entry.payment_mode}</span>
-            </div>
-
-            <div className="flex justify-between items-center border-b border-gray-100 pb-1.5">
-              <span className="font-semibold text-gray-700">स्वीकारकर्ता :</span>
-              <span className="font-medium text-gray-900">{entry.collected_by_name}</span>
-            </div>
-
-            <div className="flex justify-between items-center border-b border-gray-100 pb-1.5">
-              <span className="font-semibold text-gray-700">तारीख :</span>
-              <span className="font-medium text-gray-900">{formatDate(entry.created_at)}</span>
-            </div>
-          </div>
-
-          <div className="mt-6 pt-3 border-t border-saffron-200 text-center">
-            <p className="text-base font-bold text-saffron-700">🌸 गणपती बाप्पा मोरया 🙏</p>
           </div>
         </div>
 
