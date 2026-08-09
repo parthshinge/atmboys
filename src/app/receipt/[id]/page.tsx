@@ -58,7 +58,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
   async function handleWhatsAppShare() {
     if (!entry) return;
     const text = encodeURIComponent(
-      `|| नवसाचा गणपती ||\nअष्टविनायक तरुण मंडळ, हिंगणगाव.\n\nReceipt No. ${padNumber(entry.receipt_number)}\nदेणगीदार : ${entry.donor_name}\nरक्कम : ₹ ${Number(entry.amount).toLocaleString('en-IN')}\nदेणगी स्वरूप : ${entry.payment_mode}\nस्वीकारकर्ता : ${entry.collected_by_name}\nतारीख : ${formatDate(entry.created_at)}\n\n🌸 गणपती बाप्पा मोरया 🙏`
+      `|| नवसाचा गणपती ||\nअष्टविनायक तरुण मंडळ, हिंगणगाव.\n\nपावती क्र. ${padNumber(entry.receipt_number)}\nदेणगीदार : ${entry.donor_name}\nरक्कम : ₹ ${Number(entry.amount).toLocaleString('en-IN')}\nदेणगी स्वरूप : ${entry.payment_mode}\nस्वीकारकर्ता : ${entry.collected_by_name}\nतारीख : ${formatDate(entry.created_at)}\n\n🌸 गणपती बाप्पा मोरया 🙏`
     );
 
     if (receiptRef.current && navigator.canShare) {
@@ -113,28 +113,29 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
 
         <div
           ref={receiptRef}
-          className="relative overflow-hidden rounded-xl border-2 border-saffron-600 bg-white p-6 shadow-md font-sans"
+          className="rounded-xl border-2 border-saffron-600 bg-white p-6 shadow-md font-sans"
         >
-          {/* Logo in Upper Right Corner */}
-          <div className="absolute top-3 right-3 w-16 h-16 sm:w-20 sm:h-20">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/logo.png"
-              alt="Mandal Logo"
-              className="h-full w-full object-contain"
-            />
-          </div>
-
-          <div className="mb-4 pr-16 border-b-2 border-dashed border-saffron-300 pb-3 text-left">
-            <p className="text-sm sm:text-base font-bold text-saffron-600">|| नवसाचा गणपती ||</p>
-            <h2 className="mt-1 text-base sm:text-lg font-extrabold text-saffron-700 leading-tight">
-              अष्टविनायक तरुण मंडळ, हिंगणगाव.
-            </h2>
+          {/* Header with Logo on Left and Centered Title */}
+          <div className="mb-4 flex items-center gap-3 border-b-2 border-dashed border-saffron-300 pb-3">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 flex-shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/logo.png"
+                alt="Mandal Logo"
+                className="h-full w-full object-contain"
+              />
+            </div>
+            <div className="flex-1 text-center pr-2">
+              <p className="text-sm sm:text-base font-bold text-saffron-600">|| नवसाचा गणपती ||</p>
+              <h2 className="mt-0.5 text-base sm:text-lg font-extrabold text-saffron-700 leading-tight">
+                अष्टविनायक तरुण मंडळ, हिंगणगाव.
+              </h2>
+            </div>
           </div>
 
           <div className="space-y-2.5 text-sm">
             <div className="flex justify-between items-center border-b border-gray-100 pb-1.5">
-              <span className="font-semibold text-gray-700">Receipt No.</span>
+              <span className="font-semibold text-gray-700">पावती क्र. :</span>
               <span className="font-bold text-saffron-700">{padNumber(entry.receipt_number)}</span>
             </div>
 
