@@ -129,7 +129,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
           <div className="relative z-10">
             {/* Header with Logo on Left and Centered Title */}
             <div className="mb-4 flex items-center gap-3 border-b-2 border-dashed border-saffron-300 pb-3">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 flex-shrink-0">
+              <div className="w-[100px] h-[100px] sm:w-[116px] sm:h-[116px] flex-shrink-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="/logo.png"
