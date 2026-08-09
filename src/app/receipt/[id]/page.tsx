@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, use } from "react";
 import { Navbar } from "@/components/Navbar";
 import { createClient } from "@/lib/supabase/client";
 import type { IncomeEntry } from "@/types/database";
-import { formatCurrency, formatDate, padNumber } from "@/lib/utils";
+import { formatDate, padNumber } from "@/lib/utils";
 import { Download, Share2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
@@ -58,7 +58,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
   async function handleWhatsAppShare() {
     if (!entry) return;
     const text = encodeURIComponent(
-      `------------------------------------\nअष्टविनायक तरुण मंडळ\n\nReceipt No. ${padNumber(entry.receipt_number)}\nDonor: ${entry.donor_name}\nAmount: ${formatCurrency(Number(entry.amount))}\nMode: ${entry.payment_mode}\nCollected By: ${entry.collected_by_name}\nDate: ${formatDate(entry.created_at)}\n\n🌸 गणपती बाप्पा मोरया 🙏\n------------------------------------`
+      `|| नवसाचा गणपती ||\nअष्टविनायक तरुण मंडळ, हिंगणगाव.\n\nReceipt No. ${padNumber(entry.receipt_number)}\nदेणगीदार : ${entry.donor_name}\nरक्कम : ₹ ${Number(entry.amount).toLocaleString('en-IN')}\nदेणगी स्वरूप : ${entry.payment_mode}\nस्वीकारकर्ता : ${entry.collected_by_name}\nतारीख : ${formatDate(entry.created_at)}\n\n🌸 गणपती बाप्पा मोरया 🙏`
     );
 
     if (receiptRef.current && navigator.canShare) {
@@ -113,31 +113,59 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
 
         <div
           ref={receiptRef}
-          className="rounded-xl border-2 border-saffron-600 bg-white p-6 font-serif"
+          className="relative overflow-hidden rounded-xl border-2 border-saffron-600 bg-white p-6 shadow-md font-sans"
         >
-          <div className="mb-4 border-b-2 border-dashed border-saffron-300 pb-3 text-center">
-            <p className="text-base font-semibold text-saffron-600">|| नवसाचा गणपती ||</p>
-            <h2 className="text-lg font-bold text-saffron-700">अष्टविनायक तरुण मंडळ</h2>
-            <p className="text-xs text-gray-500">Donation Receipt</p>
+          {/* Logo in Upper Right Corner */}
+          <div className="absolute top-3 right-3 w-16 h-16 sm:w-20 sm:h-20">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.png"
+              alt="Mandal Logo"
+              className="h-full w-full object-contain"
+            />
           </div>
 
-          <div className="mb-4 flex items-center justify-between text-sm">
-            <span className="font-semibold text-gray-700">
-              Receipt No: <span className="text-saffron-700">{padNumber(entry.receipt_number)}</span>
-            </span>
-            <span className="text-gray-500">{formatDate(entry.created_at)}</span>
+          <div className="mb-4 pr-16 border-b-2 border-dashed border-saffron-300 pb-3 text-left">
+            <p className="text-sm sm:text-base font-bold text-saffron-600">|| नवसाचा गणपती ||</p>
+            <h2 className="mt-1 text-base sm:text-lg font-extrabold text-saffron-700 leading-tight">
+              अष्टविनायक तरुण मंडळ, हिंगणगाव.
+            </h2>
           </div>
 
-          <dl className="space-y-2 text-sm">
-            <Row label="Donor Name" value={entry.donor_name} />
-            {entry.mobile_number && <Row label="Mobile" value={entry.mobile_number} />}
-            <Row label="Amount" value={formatCurrency(Number(entry.amount))} bold />
-            <Row label="Payment Mode" value={entry.payment_mode} capitalize />
-            <Row label="Collected By" value={entry.collected_by_name} />
-          </dl>
+          <div className="space-y-2.5 text-sm">
+            <div className="flex justify-between items-center border-b border-gray-100 pb-1.5">
+              <span className="font-semibold text-gray-700">Receipt No.</span>
+              <span className="font-bold text-saffron-700">{padNumber(entry.receipt_number)}</span>
+            </div>
 
-          <div className="mt-8 text-center">
-            <p className="text-base font-semibold text-saffron-700">गणपती बाप्पा मोरया</p>
+            <div className="flex justify-between items-center border-b border-gray-100 pb-1.5">
+              <span className="font-semibold text-gray-700">देणगीदार :</span>
+              <span className="font-medium text-gray-900">{entry.donor_name}</span>
+            </div>
+
+            <div className="flex justify-between items-center border-b border-gray-100 pb-1.5">
+              <span className="font-semibold text-gray-700">रक्कम :</span>
+              <span className="font-bold text-saffron-700">₹ {Number(entry.amount).toLocaleString("en-IN")}</span>
+            </div>
+
+            <div className="flex justify-between items-center border-b border-gray-100 pb-1.5">
+              <span className="font-semibold text-gray-700">देणगी स्वरूप :</span>
+              <span className="font-medium text-gray-900 capitalize">{entry.payment_mode}</span>
+            </div>
+
+            <div className="flex justify-between items-center border-b border-gray-100 pb-1.5">
+              <span className="font-semibold text-gray-700">स्वीकारकर्ता :</span>
+              <span className="font-medium text-gray-900">{entry.collected_by_name}</span>
+            </div>
+
+            <div className="flex justify-between items-center border-b border-gray-100 pb-1.5">
+              <span className="font-semibold text-gray-700">तारीख :</span>
+              <span className="font-medium text-gray-900">{formatDate(entry.created_at)}</span>
+            </div>
+          </div>
+
+          <div className="mt-6 pt-3 border-t border-saffron-200 text-center">
+            <p className="text-base font-bold text-saffron-700">🌸 गणपती बाप्पा मोरया 🙏</p>
           </div>
         </div>
 
@@ -165,31 +193,6 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
           </button>
         </div>
       </main>
-    </div>
-  );
-}
-
-function Row({
-  label,
-  value,
-  bold,
-  capitalize,
-}: {
-  label: string;
-  value: string;
-  bold?: boolean;
-  capitalize?: boolean;
-}) {
-  return (
-    <div className="flex justify-between border-b border-dotted border-gray-200 pb-1">
-      <dt className="text-gray-500">{label}</dt>
-      <dd
-        className={`${bold ? "font-bold text-saffron-700" : "text-gray-800"} ${
-          capitalize ? "capitalize" : ""
-        }`}
-      >
-        {value}
-      </dd>
     </div>
   );
 }

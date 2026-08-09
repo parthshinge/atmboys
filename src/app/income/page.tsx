@@ -9,7 +9,7 @@ import { Navbar } from "@/components/Navbar";
 import { createClient } from "@/lib/supabase/client";
 import type { AppUser, IncomeEntry } from "@/types/database";
 
-const fixedCollectors = ["Nikhil", "Vishal", "Vishwajeet"];
+const fixedCollectors = ["Nikhil", "Vishal", "Vishwajeet", "Sunny"];
 
 const incomeSchema = z.object({
   amount: z.coerce.number().positive("Enter a valid amount"),
