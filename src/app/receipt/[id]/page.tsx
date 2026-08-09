@@ -138,8 +138,8 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
                 />
               </div>
               <div className="flex-1 text-center pr-2">
-                <p className="text-base sm:text-lg font-bold text-saffron-600">|| नवसाचा गणपती ||</p>
-                <h2 className="mt-1 text-lg sm:text-xl font-extrabold text-saffron-700 leading-tight">
+                <p className="text-sm sm:text-base font-bold text-saffron-600">|| नवसाचा गणपती ||</p>
+                <h2 className="mt-1 text-[15px] sm:text-lg font-extrabold text-saffron-700 whitespace-nowrap tracking-tight">
                   अष्टविनायक तरुण मंडळ, हिंगणगाव.
                 </h2>
               </div>
