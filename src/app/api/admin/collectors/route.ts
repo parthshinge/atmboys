@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/require-admin";
+import type { UserRole } from "@/types/database";
 
 export async function POST(request: NextRequest) {
   const guard = await requireAdmin();
@@ -9,11 +10,14 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { email, password, full_name } = body as {
+  const { email, password, full_name, role } = body as {
     email?: string;
     password?: string;
     full_name?: string;
+    role?: UserRole;
   };
+
+  const targetRole: UserRole = role === "admin" ? "admin" : "collector";
 
   if (!email || !password || !full_name) {
     return NextResponse.json(
@@ -28,21 +32,77 @@ export async function POST(request: NextRequest) {
     email,
     password,
     email_confirm: true,
+    user_metadata: {
+      full_name,
+      role: targetRole,
+    },
   });
 
   if (createError || !created.user) {
-    return NextResponse.json(
-      { error: createError?.message ?? "Failed to create user" },
-      { status: 400 }
-    );
+    const errMsg = createError?.message ?? "Failed to create user";
+    const isDuplicateEmail =
+      errMsg.toLowerCase().includes("already registered") ||
+      errMsg.toLowerCase().includes("already exists") ||
+      errMsg.toLowerCase().includes("email_exists");
+
+    if (isDuplicateEmail) {
+      // Check if user exists in auth.users but lacks a public.users profile
+      const { data: listData } = await admin.auth.admin.listUsers();
+      const existingUser = listData.users.find(
+        (u) => u.email?.toLowerCase() === email.toLowerCase()
+      );
+
+      if (existingUser) {
+        const { data: existingProfile } = await admin
+          .from("users")
+          .select("id")
+          .eq("id", existingUser.id)
+          .maybeSingle();
+
+        if (!existingProfile) {
+          // Repair missing profile
+          const { error: repairError } = await admin.from("users").upsert(
+            {
+              id: existingUser.id,
+              full_name,
+              role: targetRole,
+              is_active: true,
+              full_report_access: targetRole === "admin",
+            },
+            { onConflict: "id" }
+          );
+
+          if (repairError) {
+            return NextResponse.json({ error: repairError.message }, { status: 400 });
+          }
+
+          return NextResponse.json({
+            id: existingUser.id,
+            message: "Missing profile repaired for existing user.",
+          });
+        }
+      }
+
+      return NextResponse.json(
+        { error: "A user with this email already exists." },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json({ error: errMsg }, { status: 400 });
   }
 
-  const { error: profileError } = await admin.from("users").insert({
-    id: created.user.id,
-    full_name,
-    role: "collector",
-    is_active: true,
-  });
+  // Ensure public.users profile is updated / populated cleanly (upsert prevents duplicate key errors if trigger already ran)
+  const { error: profileError } = await admin.from("users").upsert(
+    {
+      id: created.user.id,
+      full_name,
+      role: targetRole,
+      is_active: true,
+      full_report_access: targetRole === "admin",
+    },
+    { onConflict: "id" }
+  );
 
   if (profileError) {
     await admin.auth.admin.deleteUser(created.user.id);

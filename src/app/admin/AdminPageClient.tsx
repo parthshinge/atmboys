@@ -20,7 +20,12 @@ import {
 export default function AdminPageClient() {
   const [members, setMembers] = useState<AppUser[]>([]);
   const [heads, setHeads] = useState<ExpenseHead[]>([]);
-  const [newCollector, setNewCollector] = useState({ full_name: "", email: "", password: "" });
+  const [newCollector, setNewCollector] = useState<{
+    full_name: string;
+    email: string;
+    password: string;
+    role: UserRole;
+  }>({ full_name: "", email: "", password: "", role: "collector" });
   const [newHead, setNewHead] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -58,8 +63,8 @@ export default function AdminPageClient() {
       setMessage(body.error ?? "Failed to create member");
       return;
     }
-    setNewCollector({ full_name: "", email: "", password: "" });
-    setMessage("Member created — they can log in immediately with User access.");
+    setNewCollector({ full_name: "", email: "", password: "", role: "collector" });
+    setMessage(body.message ?? `Member created successfully — they can log in immediately.`);
     loadData();
   }
 
@@ -180,7 +185,7 @@ export default function AdminPageClient() {
 
           <form
             onSubmit={handleCreateCollector}
-            className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-4"
+            className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-5"
           >
             <input
               type="text"
@@ -207,6 +212,16 @@ export default function AdminPageClient() {
               onChange={(e) => setNewCollector({ ...newCollector, password: e.target.value })}
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
             />
+            <select
+              value={newCollector.role}
+              onChange={(e) =>
+                setNewCollector({ ...newCollector, role: e.target.value as UserRole })
+              }
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 bg-white"
+            >
+              <option value="collector">User (Collector)</option>
+              <option value="admin">Admin</option>
+            </select>
             <button
               type="submit"
               disabled={busy}

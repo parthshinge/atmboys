@@ -10,6 +10,8 @@ create table if not exists public.users (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text not null,
   role text not null check (role in ('admin', 'collector')),
+  is_active boolean not null default true,
+  full_report_access boolean not null default false,
   created_at timestamptz not null default now()
 );
 
@@ -301,3 +303,54 @@ exception
   when undefined_object then
     null;
 end $$;
+
+-- ============================================================================
+-- AUTOMATIC PROFILE CREATION TRIGGER (auth.users -> public.users)
+-- Ensures public.users profile is automatically created whether user is created
+-- via Admin UI or directly in Supabase Auth Dashboard.
+-- ============================================================================
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.users (
+    id,
+    full_name,
+    role,
+    is_active,
+    full_report_access
+  )
+  values (
+    new.id,
+    coalesce(
+      nullif(trim(new.raw_user_meta_data->>'full_name'), ''),
+      nullif(trim(new.raw_user_meta_data->>'name'), ''),
+      split_part(new.email, '@', 1)
+    ),
+    case
+      when lower(coalesce(new.raw_user_meta_data->>'role', '')) in ('admin', 'collector')
+        then lower(new.raw_user_meta_data->>'role')
+      else 'collector'
+    end,
+    true,
+    case
+      when lower(coalesce(new.raw_user_meta_data->>'role', '')) = 'admin' then true
+      else false
+    end
+  )
+  on conflict (id) do update set
+    full_name = coalesce(nullif(trim(excluded.full_name), ''), public.users.full_name),
+    role = coalesce(excluded.role, public.users.role);
+
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
+
