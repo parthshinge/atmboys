@@ -6,7 +6,7 @@ import { Navbar } from "@/components/Navbar";
 import { createClient } from "@/lib/supabase/client";
 import type { IncomeEntry, ExpenseEntry } from "@/types/database";
 import { formatCurrency, formatDate, padNumber } from "@/lib/utils";
-import { ArrowUpCircle, ArrowDownCircle, Wallet } from "lucide-react";
+import { ArrowUpCircle, ArrowDownCircle, Wallet, UtensilsCrossed } from "lucide-react";
 
 type Transaction =
   | ({ kind: "income" } & IncomeEntry)
@@ -15,6 +15,7 @@ type Transaction =
 export default function DashboardPage() {
   const [totalIncome, setTotalIncome] = useState(0);
   const [totalExpense, setTotalExpense] = useState(0);
+  const [mahaprasadCount, setMahaprasadCount] = useState(0);
   const [recent, setRecent] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -27,6 +28,9 @@ export default function DashboardPage() {
     const expenseQuery = supabase
       .from("expense")
       .select("amount");
+    const mahaprasadQuery = supabase
+      .from("mahaprasad_donations")
+      .select("*", { count: "exact", head: true });
     const recentIncomeQuery = supabase
       .from("income")
       .select("*")
@@ -45,9 +49,16 @@ export default function DashboardPage() {
     const [
       { data: incomeAll },
       { data: expenseAll },
+      { count: mahaprasadTotal },
       { data: recentIncome },
       { data: recentExpense },
-    ] = await Promise.all([incomeQuery, expenseQuery, recentIncomeQuery, recentExpenseQuery]);
+    ] = await Promise.all([
+      incomeQuery,
+      expenseQuery,
+      mahaprasadQuery,
+      recentIncomeQuery,
+      recentExpenseQuery,
+    ]);
 
     const income = incomeAll ?? [];
     const expense = expenseAll ?? [];
@@ -57,6 +68,7 @@ export default function DashboardPage() {
 
     setTotalIncome(totalIncomeValue);
     setTotalExpense(totalExpenseValue);
+    setMahaprasadCount(mahaprasadTotal ?? 0);
 
     const combined: Transaction[] = [
       ...(recentIncome ?? []).map((r) => ({ kind: "income" as const, ...r })),
@@ -85,6 +97,11 @@ export default function DashboardPage() {
         { event: "*", schema: "public", table: "expense" },
         () => loadData()
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "mahaprasad_donations" },
+        () => loadData()
+      )
       .subscribe();
 
     return () => {
@@ -98,7 +115,7 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-[#fdfbf7]">
       <Navbar />
       <main className="mx-auto max-w-5xl px-4 py-6">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
             label="Total Income"
             value={formatCurrency(totalIncome)}
@@ -113,6 +130,11 @@ export default function DashboardPage() {
             label="Current Balance"
             value={formatCurrency(balance)}
             icon={<Wallet className="text-saffron-600" size={22} />}
+          />
+          <StatCard
+            label="Mahaprasad Donations"
+            value={`${mahaprasadCount} ${mahaprasadCount === 1 ? "Donation" : "Donations"}`}
+            icon={<UtensilsCrossed className="text-amber-600" size={22} />}
           />
         </div>
 

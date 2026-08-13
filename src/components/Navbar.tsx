@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { UserRole } from "@/types/database";
 import { cn } from "@/lib/utils";
-import { LogOut, LayoutDashboard, IndianRupee, Receipt, FileBarChart, Shield } from "lucide-react";
+import { LogOut, LayoutDashboard, IndianRupee, Receipt, UtensilsCrossed, FileBarChart, Shield } from "lucide-react";
 
 export function Navbar() {
   const pathname = usePathname();
@@ -53,6 +53,7 @@ export function Navbar() {
           { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
           { href: "/income", label: "Income", icon: IndianRupee },
           { href: "/expense", label: "Expense", icon: Receipt },
+          { href: "/mahaprasad", label: "Mahaprasad", icon: UtensilsCrossed },
           { href: "/reports", label: "Reports", icon: FileBarChart },
           { href: "/admin", label: "Admin", icon: Shield },
         ]
@@ -60,6 +61,7 @@ export function Navbar() {
           { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
           { href: "/income", label: "Income", icon: IndianRupee },
           { href: "/expense", label: "Expense", icon: Receipt },
+          { href: "/mahaprasad", label: "Mahaprasad", icon: UtensilsCrossed },
           { href: "/reports", label: "Reports", icon: FileBarChart },
         ];
 

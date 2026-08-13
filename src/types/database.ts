@@ -41,3 +41,15 @@ export interface ExpenseHead {
   name: string;
   created_at: string;
 }
+
+export interface MahaprasadDonation {
+  id: string;
+  donor_name: string;
+  mobile_number: string | null;
+  items_donated: string;
+  collected_by: string | null;
+  collected_by_name: string;
+  created_by?: string | null;
+  created_at: string;
+}
+

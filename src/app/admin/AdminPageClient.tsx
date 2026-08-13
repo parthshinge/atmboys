@@ -148,7 +148,7 @@ export default function AdminPageClient() {
   async function handleFreshStart() {
     if (
       !confirm(
-        "🔄 Fresh Start: This will delete ALL income and expense records and restart receipt & voucher counters from 1. Users, roles, and expense heads will NOT be deleted. Are you sure?"
+        "🔄 Fresh Start: This will delete ALL income, expense, and Mahaprasad donation records and restart receipt & voucher counters from 1. Users, roles, and expense heads will NOT be deleted. Are you sure?"
       )
     )
       return;
@@ -160,7 +160,7 @@ export default function AdminPageClient() {
     if (error) {
       setMessage(error.message);
     } else {
-      setMessage("🔄 Fresh Start completed — all ledger data deleted and counters reset to 0.");
+      setMessage("🔄 Fresh Start completed — all ledger & Mahaprasad data deleted and counters reset to 0.");
       await loadData();
       if (typeof window !== "undefined") {
         window.location.href = "/dashboard";
@@ -430,7 +430,7 @@ export default function AdminPageClient() {
             </button>
           </div>
           <p className="mt-3 text-xs text-gray-400">
-            Fresh Start executes in one atomic transaction: deletes all income and expense records and resets receipt & voucher counters to 0 (next entry = No. 1). Users, roles, and expense heads remain intact.
+            Fresh Start executes in one atomic transaction: deletes all income, expense, and Mahaprasad donation records and resets receipt & voucher counters to 0 (next entry = No. 1). Users, roles, and expense heads remain intact.
           </p>
         </section>
       </main>

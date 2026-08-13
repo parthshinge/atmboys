@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Navbar } from "@/components/Navbar";
 import { createClient } from "@/lib/supabase/client";
-import type { IncomeEntry, ExpenseEntry } from "@/types/database";
+import type { IncomeEntry, ExpenseEntry, MahaprasadDonation } from "@/types/database";
 import { formatCurrency, formatDate, padNumber } from "@/lib/utils";
 import { FileSpreadsheet } from "lucide-react";
 
@@ -22,6 +22,7 @@ export default function ReportsPage() {
   const [toDate, setToDate] = useState(todayISO());
   const [income, setIncome] = useState<IncomeEntry[]>([]);
   const [expense, setExpense] = useState<ExpenseEntry[]>([]);
+  const [mahaprasad, setMahaprasad] = useState<MahaprasadDonation[]>([]);
   const [loading, setLoading] = useState(true);
 
   async function loadData() {
@@ -44,14 +45,19 @@ export default function ReportsPage() {
       .gte("created_at", from.toISOString())
       .lte("created_at", to.toISOString())
       .order("voucher_number", { ascending: true });
+    const mahaprasadQuery = supabase
+      .from("mahaprasad_donations")
+      .select("*")
+      .gte("created_at", from.toISOString())
+      .lte("created_at", to.toISOString())
+      .order("created_at", { ascending: false });
 
-    const [{ data: incomeData }, { data: expenseData }] = await Promise.all([
-      incomeQuery,
-      expenseQuery,
-    ]);
+    const [{ data: incomeData }, { data: expenseData }, { data: mahaprasadData }] =
+      await Promise.all([incomeQuery, expenseQuery, mahaprasadQuery]);
 
     setIncome(incomeData ?? []);
     setExpense(expenseData ?? []);
+    setMahaprasad(mahaprasadData ?? []);
     setLoading(false);
   }
 
@@ -69,6 +75,11 @@ export default function ReportsPage() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "expense" },
+        () => loadData()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "mahaprasad_donations" },
         () => loadData()
       )
       .subscribe();
@@ -106,9 +117,20 @@ export default function ReportsPage() {
       }))
     );
 
+    const mahaprasadSheet = XLSX.utils.json_to_sheet(
+      mahaprasad.map((r) => ({
+        Date: formatDate(r.created_at),
+        "Donor Name": r.donor_name,
+        Mobile: r.mobile_number ?? "",
+        "Material / Items Donated": r.items_donated,
+        "Collected By": r.collected_by_name,
+      }))
+    );
+
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, incomeSheet, "Income");
     XLSX.utils.book_append_sheet(workbook, expenseSheet, "Expense");
+    XLSX.utils.book_append_sheet(workbook, mahaprasadSheet, "Mahaprasad");
 
     XLSX.writeFile(workbook, `mandal-report-${fromDate}-to-${toDate}.xlsx`);
   }
@@ -159,27 +181,41 @@ export default function ReportsPage() {
         {loading ? (
           <p className="text-sm text-gray-500">Loading...</p>
         ) : (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <ReportTable
+                title={`Income (${income.length}) · ${formatCurrency(totalIncome)}`}
+                headers={["Receipt", "Donor", "Amount", "Mode", "By"]}
+                rows={income.map((r) => [
+                  padNumber(r.receipt_number),
+                  r.donor_name,
+                  formatCurrency(Number(r.amount)),
+                  r.payment_mode,
+                  r.collected_by_name,
+                ])}
+              />
+              <ReportTable
+                title={`Expense (${expense.length}) · ${formatCurrency(totalExpense)}`}
+                headers={["Voucher", "Paid To", "Amount", "Head", "By"]}
+                rows={expense.map((r) => [
+                  padNumber(r.voucher_number),
+                  r.paid_to,
+                  formatCurrency(Number(r.amount)),
+                  r.expense_head,
+                  r.paid_by_name,
+                ])}
+              />
+            </div>
+
             <ReportTable
-              title={`Income (${income.length}) · ${formatCurrency(totalIncome)}`}
-              headers={["Receipt", "Donor", "Amount", "Mode", "By"]}
-              rows={income.map((r) => [
-                padNumber(r.receipt_number),
+              title={`Mahaprasad Material Donations (${mahaprasad.length})`}
+              headers={["Date", "Donor Name", "Mobile", "Items Donated", "Collected By"]}
+              rows={mahaprasad.map((r) => [
+                formatDate(r.created_at),
                 r.donor_name,
-                formatCurrency(Number(r.amount)),
-                r.payment_mode,
+                r.mobile_number ?? "-",
+                r.items_donated,
                 r.collected_by_name,
-              ])}
-            />
-            <ReportTable
-              title={`Expense (${expense.length}) · ${formatCurrency(totalExpense)}`}
-              headers={["Voucher", "Paid To", "Amount", "Head", "By"]}
-              rows={expense.map((r) => [
-                padNumber(r.voucher_number),
-                r.paid_to,
-                formatCurrency(Number(r.amount)),
-                r.expense_head,
-                r.paid_by_name,
               ])}
             />
           </div>
